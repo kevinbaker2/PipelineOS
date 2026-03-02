@@ -9,6 +9,7 @@ export default async function SettingsPage() {
   let phases: PhaseSetting[];
   let scoring: ScoringSetting[];
   let isAdmin = false;
+  let workDays = [1, 2, 3, 4, 5];
 
   try {
     const supabase = createClient();
@@ -17,10 +18,11 @@ export default async function SettingsPage() {
     if (user) {
       const { data: profile } = await supabase
         .from("users")
-        .select("role")
+        .select("role, work_days")
         .eq("id", user.id)
         .single();
       isAdmin = profile?.role === "admin";
+      if (profile?.work_days) workDays = profile.work_days;
     }
 
     const dbPhases = await getPhaseSettings();
@@ -46,7 +48,7 @@ export default async function SettingsPage() {
         </p>
       </div>
       <SettingsNav isAdmin={isAdmin} />
-      <SettingsView phases={phases} scoring={scoring} />
+      <SettingsView phases={phases} scoring={scoring} workDays={workDays} />
     </div>
   );
 }

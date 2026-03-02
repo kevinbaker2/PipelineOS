@@ -98,7 +98,7 @@ export function TeamManagement({ members, currentUserId }: TeamManagementProps) 
         </CardContent>
       </Card>
 
-      {/* Members table */}
+      {/* Members */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -106,8 +106,25 @@ export function TeamManagement({ members, currentUserId }: TeamManagementProps) 
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border">
-            <div className="hidden items-center gap-4 border-b bg-muted/50 px-4 py-3 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[2fr_2fr_1fr_1fr]">
+          {/* Mobile: card layout */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {members.map((member) => (
+              <MemberCard
+                key={member.id}
+                member={member}
+                isSelf={member.id === currentUserId}
+              />
+            ))}
+            {members.length === 0 && (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No team members found
+              </div>
+            )}
+          </div>
+
+          {/* Desktop: table layout */}
+          <div className="hidden md:block rounded-lg border">
+            <div className="grid items-center gap-4 border-b bg-muted/50 px-4 py-3 text-xs font-medium text-muted-foreground md:grid-cols-[2fr_2fr_1fr_1fr]">
               <span>Name</span>
               <span>Email</span>
               <span>Role</span>
@@ -128,6 +145,67 @@ export function TeamManagement({ members, currentUserId }: TeamManagementProps) 
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function MemberCard({
+  member,
+  isSelf,
+}: {
+  member: TeamMember;
+  isSelf: boolean;
+}) {
+  const [isPending, startTransition] = useTransition();
+
+  function handleRoleChange(newRole: string) {
+    startTransition(async () => {
+      await updateUserRole(member.id, newRole);
+    });
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border p-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
+        {member.role === "admin" ? (
+          <Shield className="h-4 w-4 text-primary" />
+        ) : (
+          <User className="h-4 w-4 text-muted-foreground" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">
+          {member.full_name}
+          {isSelf && (
+            <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>
+          )}
+        </p>
+        <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+      </div>
+      <div className="shrink-0">
+        {isSelf ? (
+          <Badge
+            variant="outline"
+            className="bg-primary/10 text-primary border-primary/20"
+          >
+            {member.role}
+          </Badge>
+        ) : (
+          <Select
+            value={member.role}
+            onValueChange={handleRoleChange}
+            disabled={isPending}
+          >
+            <SelectTrigger className="h-8 w-[90px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="sales">Sales</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      </div>
     </div>
   );
 }

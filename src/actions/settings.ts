@@ -66,3 +66,20 @@ export async function deleteScoringSetting(id: string) {
   revalidatePath("/settings");
   return { success: true };
 }
+
+export async function updateWorkDays(workDays: number[]) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Unauthorized" };
+
+  const { error } = await supabase
+    .from("users")
+    .update({ work_days: workDays })
+    .eq("id", user.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  revalidatePath("/missions");
+  return { success: true };
+}

@@ -12,6 +12,7 @@ import {
   Trophy,
   Clock,
   TrendingDown,
+  Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import type { Lead } from "@/types";
@@ -149,65 +150,119 @@ function DealsTable({
   }
 
   return (
-    <div className="rounded-lg border">
-      <div className="hidden items-center gap-4 border-b bg-muted/50 px-4 py-3 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
-        <span>Company / Contact</span>
-        <span>MRR</span>
-        <span>Close Date</span>
-        <span>Sales Cycle</span>
-        <span>Assigned To</span>
-      </div>
-      {leads.map((lead) => {
-        const cycleDays = differenceInDays(
-          parseISO(lead.last_activity_at),
-          parseISO(lead.created_at)
-        );
-        const closeDate = new Date(lead.last_activity_at).toLocaleDateString(
-          "en-US",
-          { month: "short", day: "numeric", year: "numeric" }
-        );
-        const assignedName = lead.assigned_to
-          ? userMap.get(lead.assigned_to) ?? "Unassigned"
-          : "Unassigned";
+    <>
+      {/* Mobile: card layout */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {leads.map((lead) => {
+          const closeDate = new Date(lead.last_activity_at).toLocaleDateString(
+            "en-US",
+            { month: "short", day: "numeric", year: "numeric" }
+          );
 
-        return (
-          <Link
-            key={lead.id}
-            href={`/leads/${lead.id}`}
-            className="block border-b last:border-0 transition-colors hover:bg-muted/30"
-          >
-            <div className="grid items-center gap-4 px-4 py-3 md:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{lead.company_name}</span>
+          return (
+            <Link key={lead.id} href={`/leads/${lead.id}`}>
+              <Card className="transition-colors hover:border-primary/50">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="font-medium truncate">{lead.company_name}</span>
+                    </div>
+                    <span
+                      className={`shrink-0 ml-2 text-sm font-bold ${
+                        variant === "won" ? "text-emerald-400" : "text-red-400"
+                      }`}
+                    >
+                      {formatCurrency(Number(lead.expected_mrr))}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate mb-2">
+                    {lead.contact_name}
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge
+                      variant="outline"
+                      className={
+                        variant === "won"
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : "bg-red-500/10 text-red-400 border-red-500/20"
+                      }
+                    >
+                      {variant === "won" ? "Won" : "Lost"}
+                    </Badge>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      {closeDate}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Desktop: table layout */}
+      <div className="hidden md:block rounded-lg border">
+        <div className="grid items-center gap-4 border-b bg-muted/50 px-4 py-3 text-xs font-medium text-muted-foreground md:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+          <span>Company / Contact</span>
+          <span>MRR</span>
+          <span>Close Date</span>
+          <span>Sales Cycle</span>
+          <span>Assigned To</span>
+        </div>
+        {leads.map((lead) => {
+          const cycleDays = differenceInDays(
+            parseISO(lead.last_activity_at),
+            parseISO(lead.created_at)
+          );
+          const closeDate = new Date(lead.last_activity_at).toLocaleDateString(
+            "en-US",
+            { month: "short", day: "numeric", year: "numeric" }
+          );
+          const assignedName = lead.assigned_to
+            ? userMap.get(lead.assigned_to) ?? "Unassigned"
+            : "Unassigned";
+
+          return (
+            <Link
+              key={lead.id}
+              href={`/leads/${lead.id}`}
+              className="block border-b last:border-0 transition-colors hover:bg-muted/30"
+            >
+              <div className="grid items-center gap-4 px-4 py-3 md:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{lead.company_name}</span>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>{lead.contact_name}</span>
+                    <span className="flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      {lead.email}
+                    </span>
+                  </div>
                 </div>
-                <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
-                  <span>{lead.contact_name}</span>
-                  <span className="flex items-center gap-1">
-                    <Mail className="h-3 w-3" />
-                    {lead.email}
-                  </span>
+                <div
+                  className={`font-medium ${
+                    variant === "won" ? "text-emerald-400" : "text-red-400"
+                  }`}
+                >
+                  {formatCurrency(Number(lead.expected_mrr))}
+                </div>
+                <div className="text-sm text-muted-foreground">{closeDate}</div>
+                <div className="text-sm">
+                  {cycleDays} <span className="text-muted-foreground">days</span>
+                </div>
+                <div className="text-sm text-muted-foreground truncate">
+                  {assignedName}
                 </div>
               </div>
-              <div
-                className={`font-medium ${
-                  variant === "won" ? "text-emerald-400" : "text-red-400"
-                }`}
-              >
-                {formatCurrency(Number(lead.expected_mrr))}
-              </div>
-              <div className="text-sm text-muted-foreground">{closeDate}</div>
-              <div className="text-sm">
-                {cycleDays} <span className="text-muted-foreground">days</span>
-              </div>
-              <div className="text-sm text-muted-foreground truncate">
-                {assignedName}
-              </div>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
+            </Link>
+          );
+        })}
+      </div>
+    </>
   );
 }

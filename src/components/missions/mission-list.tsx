@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, getLevel, getXpInCurrentLevel, XP_PER_LEVEL } from "@/lib/utils";
-import type { MissionTask } from "@/types";
+import type { MissionTask, SalesMissionType } from "@/types";
 import Link from "next/link";
 import { completeMission } from "@/actions/missions";
 
@@ -150,7 +150,7 @@ export function MissionList({ missions, completedTitles, lifetimeXp }: MissionLi
       {/* Mission cards */}
       <div className="grid gap-3">
         {missions.map((mission) => {
-          const Icon = typeIcons[mission.type];
+          const Icon = typeIcons[mission.type as SalesMissionType];
           const isCompleted = completed.has(mission.id);
           const isCelebrating = celebrating === mission.id;
 
@@ -180,7 +180,7 @@ export function MissionList({ missions, completedTitles, lifetimeXp }: MissionLi
                     )} />
                   ) : (
                     <Icon
-                      className={cn("h-5 w-5", typeColors[mission.type])}
+                      className={cn("h-5 w-5", typeColors[mission.type as SalesMissionType])}
                     />
                   )}
                 </div>

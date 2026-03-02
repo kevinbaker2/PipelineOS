@@ -23,6 +23,7 @@ create table public.users (
   role text not null default 'sales' check (role in ('admin', 'sales')),
   avatar_url text,
   xp_total integer not null default 0,
+  work_days integer[] default '{1,2,3,4,5}',
   created_at timestamptz default now() not null
 );
 
@@ -59,6 +60,7 @@ create table public.tasks (
   xp_value integer not null default 10,
   due_date date not null default current_date,
   completed_at timestamptz,
+  category text not null default 'sales',
   created_at timestamptz default now() not null
 );
 
@@ -103,6 +105,7 @@ create index idx_tasks_org_id on public.tasks(org_id);
 create index idx_tasks_user_id on public.tasks(user_id);
 create index idx_tasks_lead_id on public.tasks(lead_id);
 create index idx_tasks_due_date on public.tasks(due_date);
+create index idx_tasks_category on public.tasks(category);
 create index idx_activities_org_id on public.activities(org_id);
 create index idx_activities_lead_id on public.activities(lead_id);
 create index idx_phase_settings_org_id on public.phase_settings(org_id);

@@ -50,13 +50,13 @@ function LeadCard({ lead, isDragging }: { lead: Lead; isDragging?: boolean }) {
       >
         <CardContent className="p-3">
           <div className="mb-2 flex items-start justify-between">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-sm font-medium truncate max-w-[120px]">
+            <div className="flex items-center gap-2 min-w-0">
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="text-sm font-medium truncate">
                 {lead.company_name}
               </span>
             </div>
-            <span className={cn("text-xs font-bold", scoreColor)}>
+            <span className={cn("text-xs font-bold shrink-0 ml-2", scoreColor)}>
               {lead.score}
             </span>
           </div>
@@ -112,6 +112,7 @@ function SortableLeadCard({ lead }: { lead: Lead }) {
 export function KanbanBoard({ leadsByPhase, phases }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [columns, setColumns] = useState(leadsByPhase);
+  const [mobilePhase, setMobilePhase] = useState<string | null>(null);
 
   const activeLead = activeId
     ? Object.values(columns)
@@ -122,6 +123,9 @@ export function KanbanBoard({ leadsByPhase, phases }: KanbanBoardProps) {
   const visiblePhases = phases.filter(
     (p) => p.name !== "Closed Won" && p.name !== "Closed Lost"
   );
+
+  // Default mobile phase to first phase
+  const activeMobilePhase = mobilePhase || visiblePhases[0]?.name || "";
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -193,7 +197,79 @@ export function KanbanBoard({ leadsByPhase, phases }: KanbanBoardProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      {/* Mobile: phase tabs + single column view */}
+      <div className="md:hidden">
+        <div className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1 mb-4">
+          {visiblePhases.map((phase) => {
+            const count = (columns[phase.name] || []).length;
+            const isActive = activeMobilePhase === phase.name;
+            return (
+              <button
+                key={phase.name}
+                type="button"
+                onClick={() => setMobilePhase(phase.name)}
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors",
+                  isActive
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground"
+                )}
+              >
+                <div
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: phase.color }}
+                />
+                {phase.name}
+                <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
+                  {count}
+                </Badge>
+              </button>
+            );
+          })}
+        </div>
+
+        {visiblePhases
+          .filter((p) => p.name === activeMobilePhase)
+          .map((phase) => {
+            const phaseLeads = columns[phase.name] || [];
+            const totalMRR = phaseLeads.reduce(
+              (sum, l) => sum + Number(l.expected_mrr),
+              0
+            );
+            return (
+              <div key={phase.name}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: phase.color }}
+                    />
+                    <h3 className="text-sm font-semibold">{phase.name}</h3>
+                    <Badge variant="secondary" className="text-[10px] px-1.5">
+                      {phaseLeads.length}
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {formatCurrency(totalMRR)}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {phaseLeads.map((lead) => (
+                    <LeadCard key={lead.id} lead={lead} />
+                  ))}
+                  {phaseLeads.length === 0 && (
+                    <div className="rounded-lg border-2 border-dashed p-8 text-center text-xs text-muted-foreground">
+                      No leads in this phase
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+      </div>
+
+      {/* Desktop: horizontal drag columns */}
+      <div className="hidden md:flex gap-4 overflow-x-auto pb-4">
         {visiblePhases.map((phase) => {
           const phaseLeads = columns[phase.name] || [];
           const totalMRR = phaseLeads.reduce(

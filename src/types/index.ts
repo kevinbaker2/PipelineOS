@@ -17,6 +17,7 @@ export interface User {
   full_name: string;
   role: UserRole;
   avatar_url?: string;
+  work_days: number[];
   created_at: string;
 }
 
@@ -111,15 +112,22 @@ export interface PipelineHealthBreakdown {
   explanation: string;
 }
 
+export type SalesMissionType = "stagnation" | "follow_up" | "proposal" | "outreach";
+export type MarketingMissionType = "linkedin_article" | "network_post" | "case_study" | "video_ad" | "landing_page";
+
 export interface MissionTask {
   id: string;
-  type: "stagnation" | "follow_up" | "proposal" | "outreach";
+  type: SalesMissionType | MarketingMissionType;
   title: string;
   description: string;
   lead_id?: string;
   lead_name?: string;
   xp_value: number;
   priority: TaskPriority;
+  category?: "sales" | "marketing";
+  stepNumber?: number;
+  totalSteps?: number;
+  stepLabel?: string;
 }
 
 export const DEFAULT_PHASES: Omit<PhaseSetting, "id" | "org_id">[] = [

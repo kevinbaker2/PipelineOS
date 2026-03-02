@@ -24,3 +24,9 @@ export function getXpInCurrentLevel(xpTotal: number): number {
 }
 
 export const XP_PER_LEVEL = 100;
+
+export function parseStepTitle(title: string): { displayTitle: string } | null {
+  const match = title.match(/^\[MKT:[^\]]+\]\s*(.+)$/);
+  if (!match) return null;
+  return { displayTitle: match[1] };
+}

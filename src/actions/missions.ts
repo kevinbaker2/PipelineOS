@@ -8,7 +8,8 @@ export async function completeMission(
   description: string,
   priority: string,
   xpValue: number,
-  leadId?: string
+  leadId?: string,
+  category: "sales" | "marketing" = "sales"
 ) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -34,6 +35,7 @@ export async function completeMission(
     xp_value: xpValue,
     due_date: today,
     completed_at: new Date().toISOString(),
+    category,
   });
 
   if (error) return { error: error.message };

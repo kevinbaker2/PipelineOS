@@ -86,8 +86,8 @@ export function LeadsTable({ leads, users, phases }: LeadsTableProps) {
       </div>
 
       {/* Search and filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search by company, contact, or email..."
@@ -96,9 +96,9 @@ export function LeadsTable({ leads, users, phases }: LeadsTableProps) {
             className="pl-9"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row">
           <Select value={phaseFilter} onValueChange={setPhaseFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="Phase" />
             </SelectTrigger>
             <SelectContent>
@@ -111,7 +111,7 @@ export function LeadsTable({ leads, users, phases }: LeadsTableProps) {
             </SelectContent>
           </Select>
           <Select value={sourceFilter} onValueChange={setSourceFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="Source" />
             </SelectTrigger>
             <SelectContent>
@@ -122,7 +122,7 @@ export function LeadsTable({ leads, users, phases }: LeadsTableProps) {
           </Select>
           {users.length > 0 && (
             <Select value={assignedFilter} onValueChange={setAssignedFilter}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue placeholder="Assigned to" />
               </SelectTrigger>
               <SelectContent>
@@ -136,14 +136,14 @@ export function LeadsTable({ leads, users, phases }: LeadsTableProps) {
             </Select>
           )}
           {hasActiveFilters && (
-            <Button variant="ghost" size="icon" onClick={clearFilters} title="Clear filters">
+            <Button variant="ghost" size="icon" onClick={clearFilters} title="Clear filters" className="shrink-0">
               <X className="h-4 w-4" />
             </Button>
           )}
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table / Cards */}
       {filtered.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
@@ -170,68 +170,119 @@ export function LeadsTable({ leads, users, phases }: LeadsTableProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-lg border">
-          <div className="hidden items-center gap-4 border-b bg-muted/50 px-4 py-3 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[2fr_1fr_1fr_1fr_1fr_80px]">
-            <span>Company / Contact</span>
-            <span>Phase</span>
-            <span>MRR</span>
-            <span>Probability</span>
-            <span>Forecast</span>
-            <span>Score</span>
+        <>
+          {/* Mobile: card layout */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {filtered.map((lead) => (
+              <Link key={lead.id} href={`/leads/${lead.id}`}>
+                <Card className="transition-colors hover:border-primary/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="font-medium truncate">{lead.company_name}</span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                          {lead.contact_name}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 ml-2 text-sm font-bold ${
+                          lead.score >= 70
+                            ? "text-emerald-400"
+                            : lead.score >= 40
+                            ? "text-amber-400"
+                            : "text-red-400"
+                        }`}
+                      >
+                        {lead.score}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge
+                        variant="outline"
+                        className={phaseColors[lead.phase] || ""}
+                      >
+                        {lead.phase}
+                      </Badge>
+                      <span className="text-sm font-medium">
+                        {formatCurrency(lead.expected_mrr)}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {lead.probability}%
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
           </div>
-          {filtered.map((lead) => (
-            <Link
-              key={lead.id}
-              href={`/leads/${lead.id}`}
-              className="block border-b last:border-0 transition-colors hover:bg-muted/30"
-            >
-              <div className="grid items-center gap-4 px-4 py-3 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_80px]">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{lead.company_name}</span>
+
+          {/* Desktop: table layout */}
+          <div className="hidden md:block rounded-lg border">
+            <div className="grid items-center gap-4 border-b bg-muted/50 px-4 py-3 text-xs font-medium text-muted-foreground md:grid-cols-[2fr_1fr_1fr_1fr_1fr_80px]">
+              <span>Company / Contact</span>
+              <span>Phase</span>
+              <span>MRR</span>
+              <span>Probability</span>
+              <span>Forecast</span>
+              <span>Score</span>
+            </div>
+            {filtered.map((lead) => (
+              <Link
+                key={lead.id}
+                href={`/leads/${lead.id}`}
+                className="block border-b last:border-0 transition-colors hover:bg-muted/30"
+              >
+                <div className="grid items-center gap-4 px-4 py-3 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_80px]">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">{lead.company_name}</span>
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+                      <span>{lead.contact_name}</span>
+                      <span className="flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        {lead.email}
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{lead.contact_name}</span>
-                    <span className="flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
-                      {lead.email}
+                  <div>
+                    <Badge
+                      variant="outline"
+                      className={phaseColors[lead.phase] || ""}
+                    >
+                      {lead.phase}
+                    </Badge>
+                  </div>
+                  <div className="font-medium">
+                    {formatCurrency(lead.expected_mrr)}
+                  </div>
+                  <div className="text-sm">{lead.probability}%</div>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Calendar className="h-3 w-3" />
+                    {lead.forecast_month}
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className={`font-bold ${
+                        lead.score >= 70
+                          ? "text-emerald-400"
+                          : lead.score >= 40
+                          ? "text-amber-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {lead.score}
                     </span>
                   </div>
                 </div>
-                <div>
-                  <Badge
-                    variant="outline"
-                    className={phaseColors[lead.phase] || ""}
-                  >
-                    {lead.phase}
-                  </Badge>
-                </div>
-                <div className="font-medium">
-                  {formatCurrency(lead.expected_mrr)}
-                </div>
-                <div className="text-sm">{lead.probability}%</div>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Calendar className="h-3 w-3" />
-                  {lead.forecast_month}
-                </div>
-                <div className="text-right">
-                  <span
-                    className={`font-bold ${
-                      lead.score >= 70
-                        ? "text-emerald-400"
-                        : lead.score >= 40
-                        ? "text-amber-400"
-                        : "text-red-400"
-                    }`}
-                  >
-                    {lead.score}
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+              </Link>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

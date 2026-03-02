@@ -9,19 +9,22 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Save } from "lucide-react";
 import { updatePhaseSetting, updateScoringSetting } from "@/actions/settings";
+import { ScheduleSettings } from "@/components/settings/schedule-settings";
 import type { PhaseSetting, ScoringSetting } from "@/types";
 
 interface SettingsViewProps {
   phases: PhaseSetting[];
   scoring: ScoringSetting[];
+  workDays: number[];
 }
 
-export function SettingsView({ phases, scoring }: SettingsViewProps) {
+export function SettingsView({ phases, scoring, workDays }: SettingsViewProps) {
   return (
     <Tabs defaultValue="phases">
       <TabsList>
         <TabsTrigger value="phases">Pipeline Phases</TabsTrigger>
         <TabsTrigger value="scoring">Lead Scoring</TabsTrigger>
+        <TabsTrigger value="schedule">Schedule</TabsTrigger>
       </TabsList>
 
       <TabsContent value="phases" className="space-y-4 mt-4">
@@ -70,6 +73,10 @@ export function SettingsView({ phases, scoring }: SettingsViewProps) {
             );
           }
         )}
+      </TabsContent>
+
+      <TabsContent value="schedule" className="space-y-4 mt-4">
+        <ScheduleSettings workDays={workDays} />
       </TabsContent>
     </Tabs>
   );
