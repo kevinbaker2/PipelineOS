@@ -41,7 +41,13 @@ export function LeadWarmth({ leads }: LeadWarmthProps) {
         {/* Horizontal scroll container — tiers as columns left-to-right */}
         <div className="flex gap-4 overflow-x-auto pb-2">
           {tiers.map((tier) => {
-            const tierLeads = leads.filter((l) => l.phase === tier.phase);
+            const allTierLeads = leads.filter((l) => l.phase === tier.phase);
+            const sorted = [...allTierLeads].sort(
+              (a, b) => new Date(b.last_activity_at).getTime() - new Date(a.last_activity_at).getTime()
+            );
+            const visible = sorted.slice(0, 3);
+            const hiddenCount = allTierLeads.length - visible.length;
+
             return (
               <div
                 key={tier.phase}
@@ -51,44 +57,51 @@ export function LeadWarmth({ leads }: LeadWarmthProps) {
                 <div className={`mb-3 flex items-center gap-2 rounded-lg px-3 py-2 ${tier.headerBg}`}>
                   <span className="text-base">{tier.emoji}</span>
                   <span className={`text-sm font-semibold ${tier.color}`}>
-                    {tier.label}
-                  </span>
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {tierLeads.length}
+                    {tier.label} ({allTierLeads.length})
                   </span>
                 </div>
 
                 {/* Vertical stack of lead cards */}
                 <div className="flex flex-col gap-2">
-                  {tierLeads.length === 0 ? (
+                  {allTierLeads.length === 0 ? (
                     <p className="py-4 text-center text-xs text-muted-foreground italic">
                       No leads here
                     </p>
                   ) : (
-                    tierLeads.map((lead) => {
-                      const daysInPhase = differenceInDays(
-                        now,
-                        parseISO(lead.last_activity_at)
-                      );
-                      return (
+                    <>
+                      {visible.map((lead) => {
+                        const daysInPhase = differenceInDays(
+                          now,
+                          parseISO(lead.last_activity_at)
+                        );
+                        return (
+                          <Link
+                            key={lead.id}
+                            href={`/leads/${lead.id}`}
+                            className={`rounded-lg border p-2.5 transition-colors hover:bg-muted/50 ${tier.border} ${tier.bg}`}
+                          >
+                            <p className="truncate text-sm font-medium">
+                              {lead.company_name}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {lead.contact_name}
+                            </p>
+                            <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                              <span>{daysInPhase}d in phase</span>
+                              <span>{timeAgo(lead.last_activity_at)}</span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                      {hiddenCount > 0 && (
                         <Link
-                          key={lead.id}
-                          href={`/leads/${lead.id}`}
-                          className={`rounded-lg border p-2.5 transition-colors hover:bg-muted/50 ${tier.border} ${tier.bg}`}
+                          href={`/leads?phase=${encodeURIComponent(tier.phase)}`}
+                          className={`flex items-center justify-center rounded-lg border border-dashed py-2 text-xs font-medium text-muted-foreground transition-colors hover:${tier.color} ${tier.border}`}
                         >
-                          <p className="truncate text-sm font-medium">
-                            {lead.company_name}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {lead.contact_name}
-                          </p>
-                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
-                            <span>{daysInPhase}d in phase</span>
-                            <span>{timeAgo(lead.last_activity_at)}</span>
-                          </div>
+                          View {hiddenCount} more
                         </Link>
-                      );
-                    })
+                      )}
+                    </>
                   )}
                 </div>
               </div>
