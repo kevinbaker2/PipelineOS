@@ -16,9 +16,10 @@ interface SettingsViewProps {
   phases: PhaseSetting[];
   scoring: ScoringSetting[];
   workDays: number[];
+  missionCategories: string[];
 }
 
-export function SettingsView({ phases, scoring, workDays }: SettingsViewProps) {
+export function SettingsView({ phases, scoring, workDays, missionCategories }: SettingsViewProps) {
   return (
     <Tabs defaultValue="phases">
       <TabsList>
@@ -76,7 +77,7 @@ export function SettingsView({ phases, scoring, workDays }: SettingsViewProps) {
       </TabsContent>
 
       <TabsContent value="schedule" className="space-y-4 mt-4">
-        <ScheduleSettings workDays={workDays} />
+        <ScheduleSettings workDays={workDays} missionCategories={missionCategories} />
       </TabsContent>
     </Tabs>
   );

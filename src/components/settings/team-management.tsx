@@ -14,13 +14,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UserPlus, Shield, User } from "lucide-react";
-import { inviteUser, updateUserRole } from "@/actions/team";
+import { inviteUser, updateUserRole, updateUserMissionCategories } from "@/actions/team";
+import { cn } from "@/lib/utils";
 
 interface TeamMember {
   id: string;
   full_name: string;
   email: string;
   role: string;
+  mission_categories: string[] | null;
   created_at: string;
 }
 
@@ -28,6 +30,12 @@ interface TeamManagementProps {
   members: TeamMember[];
   currentUserId: string;
 }
+
+const MISSION_TOGGLES = [
+  { key: "sales", label: "Sales", emoji: "\uD83D\uDCBC" },
+  { key: "marketing", label: "Marketing", emoji: "\uD83D\uDCE3" },
+  { key: "lead_generation", label: "Lead Gen", emoji: "\uD83C\uDFAF" },
+];
 
 export function TeamManagement({ members, currentUserId }: TeamManagementProps) {
   const [inviteError, setInviteError] = useState("");
@@ -124,10 +132,11 @@ export function TeamManagement({ members, currentUserId }: TeamManagementProps) 
 
           {/* Desktop: table layout */}
           <div className="hidden md:block rounded-lg border">
-            <div className="grid items-center gap-4 border-b bg-muted/50 px-4 py-3 text-xs font-medium text-muted-foreground md:grid-cols-[2fr_2fr_1fr_1fr]">
+            <div className="grid items-center gap-4 border-b bg-muted/50 px-4 py-3 text-xs font-medium text-muted-foreground md:grid-cols-[2fr_2fr_1fr_auto_1fr]">
               <span>Name</span>
               <span>Email</span>
               <span>Role</span>
+              <span>Missions</span>
               <span>Joined</span>
             </div>
             {members.map((member) => (
@@ -149,6 +158,54 @@ export function TeamManagement({ members, currentUserId }: TeamManagementProps) 
   );
 }
 
+function MissionToggles({
+  userId,
+  categories,
+}: {
+  userId: string;
+  categories: string[];
+}) {
+  const [active, setActive] = useState<Set<string>>(new Set(categories));
+  const [, startTransition] = useTransition();
+
+  function toggle(key: string) {
+    const next = new Set(active);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    setActive(next);
+    startTransition(async () => {
+      await updateUserMissionCategories(userId, Array.from(next));
+    });
+  }
+
+  return (
+    <div className="flex gap-1.5">
+      {MISSION_TOGGLES.map((t) => {
+        const isOn = active.has(t.key);
+        return (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => toggle(t.key)}
+            title={t.label}
+            className={cn(
+              "rounded-md border px-2 py-1 text-[10px] font-medium transition-all",
+              isOn
+                ? "border-primary/30 bg-primary/10 text-primary"
+                : "border-border bg-muted/30 text-muted-foreground opacity-50 hover:opacity-75"
+            )}
+          >
+            {t.emoji} {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function MemberCard({
   member,
   isSelf,
@@ -164,48 +221,53 @@ function MemberCard({
     });
   }
 
+  const categories = member.mission_categories ?? ["sales", "marketing"];
+
   return (
-    <div className="flex items-center gap-3 rounded-lg border p-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
-        {member.role === "admin" ? (
-          <Shield className="h-4 w-4 text-primary" />
-        ) : (
-          <User className="h-4 w-4 text-muted-foreground" />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">
-          {member.full_name}
-          {isSelf && (
-            <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>
+    <div className="flex flex-col gap-3 rounded-lg border p-3">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
+          {member.role === "admin" ? (
+            <Shield className="h-4 w-4 text-primary" />
+          ) : (
+            <User className="h-4 w-4 text-muted-foreground" />
           )}
-        </p>
-        <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">
+            {member.full_name}
+            {isSelf && (
+              <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+        </div>
+        <div className="shrink-0">
+          {isSelf ? (
+            <Badge
+              variant="outline"
+              className="bg-primary/10 text-primary border-primary/20"
+            >
+              {member.role}
+            </Badge>
+          ) : (
+            <Select
+              value={member.role}
+              onValueChange={handleRoleChange}
+              disabled={isPending}
+            >
+              <SelectTrigger className="h-8 w-[90px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="sales">Sales</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </div>
-      <div className="shrink-0">
-        {isSelf ? (
-          <Badge
-            variant="outline"
-            className="bg-primary/10 text-primary border-primary/20"
-          >
-            {member.role}
-          </Badge>
-        ) : (
-          <Select
-            value={member.role}
-            onValueChange={handleRoleChange}
-            disabled={isPending}
-          >
-            <SelectTrigger className="h-8 w-[90px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="sales">Sales</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-      </div>
+      <MissionToggles userId={member.id} categories={categories} />
     </div>
   );
 }
@@ -231,8 +293,10 @@ function MemberRow({
     year: "numeric",
   });
 
+  const categories = member.mission_categories ?? ["sales", "marketing"];
+
   return (
-    <div className="grid items-center gap-4 border-b px-4 py-3 last:border-0 md:grid-cols-[2fr_2fr_1fr_1fr]">
+    <div className="grid items-center gap-4 border-b px-4 py-3 last:border-0 md:grid-cols-[2fr_2fr_1fr_auto_1fr]">
       <div className="flex items-center gap-2">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
           {member.role === "admin" ? (
@@ -277,6 +341,7 @@ function MemberRow({
           </Select>
         )}
       </div>
+      <MissionToggles userId={member.id} categories={categories} />
       <div className="text-sm text-muted-foreground">{joinedDate}</div>
     </div>
   );

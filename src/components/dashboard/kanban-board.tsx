@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -9,6 +9,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
@@ -109,10 +110,92 @@ function SortableLeadCard({ lead }: { lead: Lead }) {
   );
 }
 
+const MAX_VISIBLE = 3;
+
+function sortByRecent(leads: Lead[]): Lead[] {
+  return [...leads].sort(
+    (a, b) => new Date(b.last_activity_at).getTime() - new Date(a.last_activity_at).getTime()
+  );
+}
+
+function DroppableColumn({
+  phase,
+  phaseLeads,
+  phaseColor,
+  totalMRR,
+}: {
+  phase: string;
+  phaseLeads: Lead[];
+  phaseColor: string;
+  totalMRR: number;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: phase });
+  const sorted = sortByRecent(phaseLeads);
+  const visible = sorted.slice(0, MAX_VISIBLE);
+  const hiddenCount = phaseLeads.length - visible.length;
+
+  return (
+    <div
+      key={phase}
+      className={cn(
+        "flex w-72 min-w-[288px] flex-col rounded-xl border bg-card/50 transition-colors",
+        isOver && "border-primary/50 bg-primary/5"
+      )}
+    >
+      <div className="flex items-center justify-between p-4 pb-2">
+        <div className="flex items-center gap-2">
+          <div
+            className="h-2.5 w-2.5 rounded-full"
+            style={{ backgroundColor: phaseColor }}
+          />
+          <h3 className="text-sm font-semibold">
+            {phase} ({phaseLeads.length})
+          </h3>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {formatCurrency(totalMRR)}
+        </span>
+      </div>
+
+      <ScrollArea className="flex-1 px-2 pb-2">
+        <div ref={setNodeRef} className="min-h-[80px]">
+          <SortableContext
+            id={phase}
+            items={visible.map((l) => l.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="flex flex-col gap-2 p-1">
+              {visible.map((lead) => (
+                <SortableLeadCard key={lead.id} lead={lead} />
+              ))}
+              {phaseLeads.length === 0 && (
+                <div className="rounded-lg border-2 border-dashed p-8 text-center text-xs text-muted-foreground">
+                  Drop leads here
+                </div>
+              )}
+            </div>
+          </SortableContext>
+          {hiddenCount > 0 && (
+            <div className="px-1 pb-1 pt-2">
+              <Link
+                href={`/leads?phase=${encodeURIComponent(phase)}`}
+                className="flex w-full items-center justify-center rounded-lg border border-dashed py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              >
+                View {hiddenCount} more
+              </Link>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
 export function KanbanBoard({ leadsByPhase, phases }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [columns, setColumns] = useState(leadsByPhase);
   const [mobilePhase, setMobilePhase] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
   const activeLead = activeId
     ? Object.values(columns)
@@ -124,7 +207,6 @@ export function KanbanBoard({ leadsByPhase, phases }: KanbanBoardProps) {
     (p) => p.name !== "Closed Won" && p.name !== "Closed Lost"
   );
 
-  // Default mobile phase to first phase
   const activeMobilePhase = mobilePhase || visiblePhases[0]?.name || "";
 
   const sensors = useSensors(
@@ -136,7 +218,7 @@ export function KanbanBoard({ leadsByPhase, phases }: KanbanBoardProps) {
     setActiveId(event.active.id as string);
   }
 
-  async function handleDragEnd(event: DragEndEvent) {
+  function handleDragEnd(event: DragEndEvent) {
     setActiveId(null);
     const { active, over } = event;
     if (!over) return;
@@ -146,7 +228,7 @@ export function KanbanBoard({ leadsByPhase, phases }: KanbanBoardProps) {
     // Find which column the lead was dropped into
     let targetPhase: string | null = null;
 
-    // Check if dropped on a column directly
+    // Check if dropped on a column directly (useDroppable id = phase name)
     const phaseNames = phases.map((p) => p.name);
     if (phaseNames.includes(over.id as string)) {
       targetPhase = over.id as string;
@@ -187,7 +269,15 @@ export function KanbanBoard({ leadsByPhase, phases }: KanbanBoardProps) {
     ];
     setColumns(newColumns);
 
-    await updateLeadPhase(activeLeadId, targetPhase);
+    // Persist to database
+    startTransition(async () => {
+      const result = await updateLeadPhase(activeLeadId, targetPhase as string);
+      if (result?.error) {
+        console.error("[KanbanBoard] Failed to update phase:", result.error);
+        // Revert on error
+        setColumns(columns);
+      }
+    });
   }
 
   return (
@@ -232,6 +322,9 @@ export function KanbanBoard({ leadsByPhase, phases }: KanbanBoardProps) {
           .filter((p) => p.name === activeMobilePhase)
           .map((phase) => {
             const phaseLeads = columns[phase.name] || [];
+            const sorted = sortByRecent(phaseLeads);
+            const visible = sorted.slice(0, MAX_VISIBLE);
+            const hiddenCount = phaseLeads.length - visible.length;
             const totalMRR = phaseLeads.reduce(
               (sum, l) => sum + Number(l.expected_mrr),
               0
@@ -244,23 +337,30 @@ export function KanbanBoard({ leadsByPhase, phases }: KanbanBoardProps) {
                       className="h-3 w-3 rounded-full"
                       style={{ backgroundColor: phase.color }}
                     />
-                    <h3 className="text-sm font-semibold">{phase.name}</h3>
-                    <Badge variant="secondary" className="text-[10px] px-1.5">
-                      {phaseLeads.length}
-                    </Badge>
+                    <h3 className="text-sm font-semibold">
+                      {phase.name} ({phaseLeads.length})
+                    </h3>
                   </div>
                   <span className="text-xs text-muted-foreground">
                     {formatCurrency(totalMRR)}
                   </span>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {phaseLeads.map((lead) => (
+                  {visible.map((lead) => (
                     <LeadCard key={lead.id} lead={lead} />
                   ))}
                   {phaseLeads.length === 0 && (
                     <div className="rounded-lg border-2 border-dashed p-8 text-center text-xs text-muted-foreground">
                       No leads in this phase
                     </div>
+                  )}
+                  {hiddenCount > 0 && (
+                    <Link
+                      href={`/leads?phase=${encodeURIComponent(phase.name)}`}
+                      className="flex w-full items-center justify-center rounded-lg border border-dashed py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                    >
+                      View {hiddenCount} more
+                    </Link>
                   )}
                 </div>
               </div>
@@ -278,45 +378,13 @@ export function KanbanBoard({ leadsByPhase, phases }: KanbanBoardProps) {
           );
 
           return (
-            <div
+            <DroppableColumn
               key={phase.name}
-              className="flex w-72 min-w-[288px] flex-col rounded-xl border bg-card/50"
-            >
-              <div className="flex items-center justify-between p-4 pb-2">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: phase.color }}
-                  />
-                  <h3 className="text-sm font-semibold">{phase.name}</h3>
-                  <Badge variant="secondary" className="text-[10px] px-1.5">
-                    {phaseLeads.length}
-                  </Badge>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {formatCurrency(totalMRR)}
-                </span>
-              </div>
-
-              <ScrollArea className="flex-1 px-2 pb-2">
-                <SortableContext
-                  id={phase.name}
-                  items={phaseLeads.map((l) => l.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="flex flex-col gap-2 p-1">
-                    {phaseLeads.map((lead) => (
-                      <SortableLeadCard key={lead.id} lead={lead} />
-                    ))}
-                    {phaseLeads.length === 0 && (
-                      <div className="rounded-lg border-2 border-dashed p-8 text-center text-xs text-muted-foreground">
-                        Drop leads here
-                      </div>
-                    )}
-                  </div>
-                </SortableContext>
-              </ScrollArea>
-            </div>
+              phase={phase.name}
+              phaseLeads={phaseLeads}
+              phaseColor={phase.color}
+              totalMRR={totalMRR}
+            />
           );
         })}
       </div>

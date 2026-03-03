@@ -4,9 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 export async function addTeamNote(formData: FormData) {
+  console.log("[addTeamNote] called with content:", formData.get("content"), "color:", formData.get("color"));
+
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Unauthorized" };
+  if (!user) {
+    console.log("[addTeamNote] ERROR: no authenticated user");
+    return { error: "Unauthorized" };
+  }
+  console.log("[addTeamNote] user:", user.id);
 
   const { data: profile } = await supabase
     .from("users")
@@ -14,7 +20,10 @@ export async function addTeamNote(formData: FormData) {
     .eq("id", user.id)
     .single();
 
-  if (!profile) return { error: "Profile not found" };
+  if (!profile) {
+    console.log("[addTeamNote] ERROR: no profile found for user", user.id);
+    return { error: "Profile not found" };
+  }
 
   const content = formData.get("content") as string;
   const color = (formData.get("color") as string) || "yellow";
@@ -24,12 +33,16 @@ export async function addTeamNote(formData: FormData) {
   const { error } = await supabase.from("team_notes").insert({
     org_id: profile.org_id,
     user_id: user.id,
-    content: content.trim(),
+    message: content.trim(),
     color,
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.log("[addTeamNote] DB error:", error.message);
+    return { error: error.message };
+  }
 
+  console.log("[addTeamNote] SUCCESS — revalidating /dashboard");
   revalidatePath("/dashboard");
   return { success: true };
 }

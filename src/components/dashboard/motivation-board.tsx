@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition, type FormEvent } from "react";
 import { X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,11 +43,35 @@ interface MotivationBoardProps {
 export function MotivationBoard({ notes, currentUserId }: MotivationBoardProps) {
   const [selectedColor, setSelectedColor] = useState("yellow");
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (formData: FormData) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+
+    const content = inputRef.current?.value?.trim();
+    if (!content) return;
+
+    console.log("[MotivationBoard] submitting note:", content, "color:", selectedColor);
+
+    const formData = new FormData();
+    formData.set("content", content);
     formData.set("color", selectedColor);
+
     startTransition(async () => {
-      await addTeamNote(formData);
+      try {
+        const result = await addTeamNote(formData);
+        console.log("[MotivationBoard] server action result:", result);
+        if (result?.error) {
+          setError(result.error);
+        } else {
+          if (inputRef.current) inputRef.current.value = "";
+        }
+      } catch (err) {
+        console.error("[MotivationBoard] submit error:", err);
+        setError("Failed to post note");
+      }
     });
   };
 
@@ -58,15 +82,16 @@ export function MotivationBoard({ notes, currentUserId }: MotivationBoardProps) 
   };
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Team Board</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Add note form */}
-        <form action={handleSubmit} className="space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-2">
           <div className="flex gap-2">
             <input
+              ref={inputRef}
               name="content"
               type="text"
               placeholder="Share a win, tip, or shoutout..."
@@ -75,7 +100,7 @@ export function MotivationBoard({ notes, currentUserId }: MotivationBoardProps) 
               maxLength={280}
             />
             <Button type="submit" size="sm" disabled={isPending}>
-              Post
+              {isPending ? "..." : "Post"}
             </Button>
           </div>
           <div className="flex items-center gap-1.5">
@@ -92,10 +117,13 @@ export function MotivationBoard({ notes, currentUserId }: MotivationBoardProps) 
               />
             ))}
           </div>
+          {error && (
+            <p className="text-xs text-red-400">{error}</p>
+          )}
         </form>
 
         {/* Notes list */}
-        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+        <div className="space-y-2 max-h-[400px] overflow-y-auto">
           {notes.length === 0 && (
             <p className="py-4 text-center text-sm text-muted-foreground">
               No notes yet. Be the first to post!

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -12,6 +12,8 @@ import {
   Trash2,
   CheckCircle2,
   Circle,
+  Pencil,
+  Check,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,10 +70,82 @@ interface LeadDetailViewProps {
   scoringSettings: ScoringSetting[];
 }
 
+function InlineEdit({
+  value,
+  field,
+  onSave,
+  className,
+}: {
+  value: string;
+  field: string;
+  onSave: (field: string, value: string) => void;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  function save() {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== value) {
+      onSave(field, trimmed);
+    } else {
+      setDraft(value);
+    }
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") { setDraft(value); setEditing(false); }
+          }}
+          onBlur={save}
+          className={cn(
+            "bg-transparent border-b border-primary/50 outline-none",
+            className
+          )}
+        />
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={save}
+          className="shrink-0 text-primary hover:text-primary/80"
+        >
+          <Check className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="group flex items-center gap-2 cursor-pointer"
+      onClick={() => setEditing(true)}
+    >
+      <span className={className}>{value}</span>
+      <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
+    </div>
+  );
+}
+
 export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetailViewProps) {
   const router = useRouter();
   const [checkedIds, setCheckedIds] = useState<Set<string>>(
-    new Set(lead.score_details || [])
+    new Set(Array.isArray(lead.score_details) ? lead.score_details : [])
   );
 
   const { totalScore, maxScore, categoryScores } = useMemo(() => {
@@ -170,8 +244,18 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
           </Button>
         </Link>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">{lead.company_name}</h1>
-          <p className="text-sm text-muted-foreground">{lead.contact_name}</p>
+          <InlineEdit
+            value={lead.company_name}
+            field="company_name"
+            onSave={handleUpdate}
+            className="text-2xl font-bold"
+          />
+          <InlineEdit
+            value={lead.contact_name}
+            field="contact_name"
+            onSave={handleUpdate}
+            className="text-sm text-muted-foreground"
+          />
         </div>
         <Button
           variant="ghost"
@@ -191,10 +275,12 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
               <CardTitle className="text-base">Lead Information</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <div className="flex items-center gap-3 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span>{lead.email}</span>
-              </div>
+              {lead.email && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span>{lead.email}</span>
+                </div>
+              )}
               {lead.phone && (
                 <div className="flex items-center gap-3 text-sm">
                   <Phone className="h-4 w-4 text-muted-foreground" />
@@ -208,10 +294,6 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
                 </span>
               </div>
               <div className="flex items-center gap-3 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span>Forecast: {lead.forecast_month}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                 <span className="font-semibold">
                   {formatCurrency(lead.expected_mrr)}/mo
@@ -222,6 +304,14 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
                   {lead.source}
                 </Badge>
               </div>
+              {lead.source_note && (
+                <div className="flex items-start gap-3 text-sm sm:col-span-2">
+                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="text-muted-foreground">
+                    {lead.source_note}
+                  </span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -230,7 +320,7 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
             <CardHeader>
               <CardTitle className="text-base">Update Deal</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-3">
+            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
                 <Label>Phase</Label>
                 <Select
@@ -265,6 +355,14 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
                   step="100"
                   defaultValue={lead.expected_mrr}
                   onBlur={(e) => handleUpdate("expected_mrr", parseFloat(e.target.value))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Forecast Month</Label>
+                <Input
+                  type="month"
+                  defaultValue={lead.forecast_month}
+                  onBlur={(e) => handleUpdate("forecast_month", e.target.value)}
                 />
               </div>
             </CardContent>

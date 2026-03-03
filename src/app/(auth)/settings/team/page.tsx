@@ -18,7 +18,7 @@ export default async function TeamPage() {
 
   const { data: orgMembers } = await supabase
     .from("users")
-    .select("id, full_name, email, role, created_at")
+    .select("id, full_name, email, role, mission_categories, created_at")
     .order("created_at", { ascending: true });
 
   return (

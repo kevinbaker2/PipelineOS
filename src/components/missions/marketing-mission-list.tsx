@@ -8,6 +8,9 @@ import {
   Globe,
   Zap,
   CheckCircle2,
+  ThumbsUp,
+  Eye,
+  UserSearch,
 } from "lucide-react";
 import { useState, useTransition, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +26,9 @@ const typeIcons: Record<MarketingMissionType, typeof PenLine> = {
   case_study: Star,
   video_ad: Video,
   landing_page: Globe,
+  linkedin_engagement: ThumbsUp,
+  website_visitors: Eye,
+  linkedin_prospecting: UserSearch,
 };
 
 const typeColors: Record<MarketingMissionType, string> = {
@@ -31,6 +37,9 @@ const typeColors: Record<MarketingMissionType, string> = {
   case_study: "text-amber-400",
   video_ad: "text-rose-400",
   landing_page: "text-teal-400",
+  linkedin_engagement: "text-blue-400",
+  website_visitors: "text-emerald-400",
+  linkedin_prospecting: "text-indigo-400",
 };
 
 const dotColors: Record<MarketingMissionType, string> = {
@@ -39,6 +48,9 @@ const dotColors: Record<MarketingMissionType, string> = {
   case_study: "bg-amber-400",
   video_ad: "bg-rose-400",
   landing_page: "bg-teal-400",
+  linkedin_engagement: "bg-blue-400",
+  website_visitors: "bg-emerald-400",
+  linkedin_prospecting: "bg-indigo-400",
 };
 
 const priorityColors = {

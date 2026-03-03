@@ -3,7 +3,13 @@ import { getLeads } from "@/services/leads";
 import { LeadsTable } from "@/components/leads/leads-table";
 import type { Lead } from "@/types";
 
-export default async function LeadsPage() {
+interface LeadsPageProps {
+  searchParams: Promise<{ phase?: string }>;
+}
+
+export default async function LeadsPage({ searchParams }: LeadsPageProps) {
+  const params = await searchParams;
+  const initialPhase = params.phase || "all";
   let leads: Lead[] = [];
   let users: { id: string; full_name: string }[] = [];
   let phases: string[] = [];
@@ -29,5 +35,5 @@ export default async function LeadsPage() {
     leads = [];
   }
 
-  return <LeadsTable leads={leads} users={users} phases={phases} />;
+  return <LeadsTable leads={leads} users={users} phases={phases} initialPhaseFilter={initialPhase} />;
 }

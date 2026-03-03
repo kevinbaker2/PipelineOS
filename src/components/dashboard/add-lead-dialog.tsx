@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,25 @@ import { createLead } from "@/actions/leads";
 export function AddLeadDialog() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const hasInput = useCallback(() => {
+    if (!formRef.current) return false;
+    const data = new FormData(formRef.current);
+    const company = (data.get("company_name") as string)?.trim();
+    const contact = (data.get("contact_name") as string)?.trim();
+    const email = (data.get("email") as string)?.trim();
+    const phone = (data.get("phone") as string)?.trim();
+    const sourceNote = (data.get("source_note") as string)?.trim();
+    return !!(company || contact || email || phone || sourceNote);
+  }, []);
+
+  function handleClose() {
+    if (hasInput()) {
+      if (!confirm("Are you sure you want to close? Your input will be lost.")) return;
+    }
+    setOpen(false);
+  }
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
@@ -35,19 +54,42 @@ export function AddLeadDialog() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(next) => {
+      if (!next) {
+        handleClose();
+      } else {
+        setOpen(true);
+      }
+    }}>
       <DialogTrigger asChild>
         <Button size="sm" className="gap-2">
           <Plus className="h-4 w-4" />
           Add Lead
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent
+        className="max-w-lg border-border/60 shadow-xl"
+        hideClose
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          handleClose();
+        }}
+      >
+        {/* Custom close button */}
+        <button
+          type="button"
+          onClick={handleClose}
+          className="absolute right-4 top-4 rounded-sm p-1 opacity-70 ring-offset-background transition-opacity hover:opacity-100 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </button>
         <DialogHeader>
           <DialogTitle>Add New Lead</DialogTitle>
           <DialogDescription>Enter the lead details below.</DialogDescription>
         </DialogHeader>
-        <form action={handleSubmit}>
+        <form ref={formRef} action={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -62,12 +104,21 @@ export function AddLeadDialog() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" required />
+                <Input id="email" name="email" type="email" placeholder="Optional" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" name="phone" />
+                <Input id="phone" name="phone" placeholder="Optional" />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="source_note">How did you meet?</Label>
+              <Input
+                id="source_note"
+                name="source_note"
+                placeholder="e.g. LinkedIn, Instagram, Event X, Referral by John"
+                maxLength={200}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -120,21 +171,12 @@ export function AddLeadDialog() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="country">Country</Label>
-                <Input id="country" name="country" defaultValue="US" />
+                <Input id="country" name="country" defaultValue="NL" />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="forecast_month">Forecast Month</Label>
-              <Input
-                id="forecast_month"
-                name="forecast_month"
-                type="month"
-                defaultValue={new Date().toISOString().slice(0, 7)}
-              />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>

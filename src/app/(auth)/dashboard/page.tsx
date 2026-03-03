@@ -104,30 +104,30 @@ export default async function DashboardPage() {
         <AddLeadDialog />
       </div>
 
-      {/* Row 1: Personal Stats */}
-      <PersonalStatsBar
-        lifetimeXp={lifetimeXp}
-        todayCompleted={todayCompleted}
-        todayTotal={missions.length}
-        weeklyXp={weeklyXp}
-      />
+      {/* Row 1: Lead Warmth (full width) */}
+      <LeadWarmth leads={allLeads} />
 
-      {/* Row 2: Kanban + Missions + Health */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      {/* Row 2: Kanban (65%) + Team Board (35%) */}
+      <div className="grid gap-6 lg:grid-cols-[65fr_35fr]">
         <div>
           <h2 className="mb-4 text-lg font-semibold">Pipeline</h2>
           <KanbanBoard leadsByPhase={leadsByPhase} phases={phases} />
         </div>
-        <div className="space-y-6">
-          <DashboardMissions missions={missions} completedTitles={completedTitles} />
-          <PipelineHealth data={healthData} />
-        </div>
+        <MotivationBoard notes={teamNotes} currentUserId={currentUserId} />
       </div>
 
-      {/* Row 3: Lead Warmth + Motivation Board */}
+      {/* Row 3: Missions (50%) + XP Stats & Health (50%) */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <LeadWarmth leads={allLeads} />
-        <MotivationBoard notes={teamNotes} currentUserId={currentUserId} />
+        <DashboardMissions missions={missions} completedTitles={completedTitles} />
+        <div className="space-y-6">
+          <PersonalStatsBar
+            lifetimeXp={lifetimeXp}
+            todayCompleted={todayCompleted}
+            todayTotal={missions.length}
+            weeklyXp={weeklyXp}
+          />
+          <PipelineHealth data={healthData} />
+        </div>
       </div>
     </div>
   );

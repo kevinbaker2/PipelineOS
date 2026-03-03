@@ -18,6 +18,7 @@ export interface User {
   role: UserRole;
   avatar_url?: string;
   work_days: number[];
+  mission_categories: string[];
   created_at: string;
 }
 
@@ -26,8 +27,9 @@ export interface Lead {
   org_id: string;
   company_name: string;
   contact_name: string;
-  email: string;
+  email?: string;
   phone?: string;
+  source_note?: string;
   phase: string;
   sector: string;
   country: string;
@@ -123,7 +125,7 @@ export interface PipelineHealthBreakdown {
 }
 
 export type SalesMissionType = "stagnation" | "follow_up" | "proposal" | "outreach";
-export type MarketingMissionType = "linkedin_article" | "network_post" | "case_study" | "video_ad" | "landing_page";
+export type MarketingMissionType = "linkedin_article" | "network_post" | "case_study" | "video_ad" | "landing_page" | "linkedin_engagement" | "website_visitors" | "linkedin_prospecting";
 
 export interface MissionTask {
   id: string;
@@ -135,6 +137,7 @@ export interface MissionTask {
   xp_value: number;
   priority: TaskPriority;
   category?: "sales" | "marketing";
+  subcategory?: "content" | "lead_generation";
   stepNumber?: number;
   totalSteps?: number;
   stepLabel?: string;

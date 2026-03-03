@@ -24,6 +24,7 @@ create table public.users (
   avatar_url text,
   xp_total integer not null default 0,
   work_days integer[] default '{1,2,3,4,5}',
+  mission_categories text[] default '{sales,marketing}',
   created_at timestamptz default now() not null
 );
 
@@ -32,8 +33,9 @@ create table public.leads (
   org_id uuid references public.organizations(id) on delete cascade not null,
   company_name text not null,
   contact_name text not null,
-  email text not null,
+  email text,
   phone text,
+  source_note text,
   phase text not null default 'Discovery',
   sector text not null default 'Technology',
   country text not null default 'US',

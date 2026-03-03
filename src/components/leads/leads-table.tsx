@@ -36,11 +36,12 @@ interface LeadsTableProps {
   leads: Lead[];
   users: OrgUser[];
   phases: string[];
+  initialPhaseFilter?: string;
 }
 
-export function LeadsTable({ leads, users, phases }: LeadsTableProps) {
+export function LeadsTable({ leads, users, phases, initialPhaseFilter = "all" }: LeadsTableProps) {
   const [search, setSearch] = useState("");
-  const [phaseFilter, setPhaseFilter] = useState("all");
+  const [phaseFilter, setPhaseFilter] = useState(initialPhaseFilter);
   const [sourceFilter, setSourceFilter] = useState("all");
   const [assignedFilter, setAssignedFilter] = useState("all");
 
@@ -51,7 +52,7 @@ export function LeadsTable({ leads, users, phases }: LeadsTableProps) {
         q &&
         !lead.company_name.toLowerCase().includes(q) &&
         !lead.contact_name.toLowerCase().includes(q) &&
-        !lead.email.toLowerCase().includes(q)
+        !(lead.email ?? "").toLowerCase().includes(q)
       ) {
         return false;
       }

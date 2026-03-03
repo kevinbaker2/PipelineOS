@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { MissionTask, MarketingMissionType } from "@/types";
-import { differenceInDays, parseISO, getWeek, getDay, startOfWeek, startOfDay, format } from "date-fns";
+import { differenceInDays, parseISO, getWeek, getDay, startOfWeek, startOfDay, format, subDays } from "date-fns";
 
 export async function getUserWorkDays(userId: string): Promise<number[]> {
   const supabase = createClient();
@@ -12,8 +12,58 @@ export async function getUserWorkDays(userId: string): Promise<number[]> {
   return data?.work_days ?? [1, 2, 3, 4, 5];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function generateMissions(userId: string): Promise<MissionTask[]> {
+export async function getUserMissionCategories(userId: string): Promise<string[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("users")
+    .select("mission_categories")
+    .eq("id", userId)
+    .single();
+  return data?.mission_categories ?? ["sales", "marketing"];
+}
+
+/**
+ * Simple seeded PRNG (mulberry32). Returns a function that produces 0-1 values.
+ */
+function seededRandom(seed: number) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleWithSeed<T>(arr: T[], seed: number): T[] {
+  const shuffled = [...arr];
+  const rng = seededRandom(seed);
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+function getDaySeed(): number {
+  const now = new Date();
+  return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+}
+
+export type MissionIntensity = "normal" | "more" | "lighter";
+
+function getXpBudget(intensity: MissionIntensity): number {
+  switch (intensity) {
+    case "lighter": return 60;
+    case "more": return 150;
+    default: return 100;
+  }
+}
+
+export async function generateMissions(
+  userId: string,
+  intensity: MissionIntensity = "normal"
+): Promise<MissionTask[]> {
   const supabase = createClient();
   const { data: leads } = await supabase
     .from("leads")
@@ -100,10 +150,38 @@ export async function generateMissions(userId: string): Promise<MissionTask[]> {
     }
   }
 
-  return missions.sort((a, b) => {
+  // Sort by priority first, then apply daily shuffle within same priority
+  missions.sort((a, b) => {
     const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
     return priorityOrder[a.priority] - priorityOrder[b.priority];
   });
+
+  // Apply daily seed shuffle to add variety (keeps priority groups but shuffles within)
+  const seed = getDaySeed() + userId.charCodeAt(0);
+  const shuffled = shuffleWithSeed(missions, seed);
+
+  // Re-sort so critical/high stay on top, but medium/low get shuffled
+  shuffled.sort((a, b) => {
+    const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    const pa = priorityOrder[a.priority];
+    const pb = priorityOrder[b.priority];
+    if (pa <= 1 && pb <= 1) return pa - pb; // keep critical > high order
+    if (pa <= 1) return -1;
+    if (pb <= 1) return 1;
+    return 0; // preserve shuffle order for medium/low
+  });
+
+  // Apply XP budget cap
+  const budget = getXpBudget(intensity);
+  const result: MissionTask[] = [];
+  let spent = 0;
+  for (const m of shuffled) {
+    if (spent + m.xp_value > budget && result.length > 0) continue;
+    result.push(m);
+    spent += m.xp_value;
+  }
+
+  return result;
 }
 
 export async function getCompletedMissionTitles(): Promise<string[]> {
@@ -307,8 +385,7 @@ export async function generateMarketingMissions(userId: string): Promise<Mission
   const completedSet = new Set(completedTitles);
   const missions: MissionTask[] = [];
 
-  // Suppress unused-var lint for userId (needed for future per-user filtering)
-  void userId;
+  void userId; // needed for future per-user filtering
 
   for (const schedule of MARKETING_SCHEDULES) {
     if (!isCycleActive(schedule.frequency, now)) continue;
@@ -343,14 +420,156 @@ export async function generateMarketingMissions(userId: string): Promise<Mission
       xp_value: step.xp,
       priority: nextStepIndex === schedule.steps.length - 1 ? "high" : "medium",
       category: "marketing",
+      subcategory: "content",
       stepNumber: nextStepIndex + 1,
       totalSteps: schedule.steps.length,
       stepLabel: step.label,
     });
 
-    // Cap at 3 marketing missions
+    // Cap at 3 content marketing missions
     if (missions.length >= 3) break;
   }
 
   return missions;
+}
+
+// ============================================
+// LEAD GENERATION MISSIONS
+// ============================================
+
+interface LeadGenDef {
+  type: MarketingMissionType;
+  title: string;
+  description: string;
+  xp: number;
+  priority: "low" | "medium" | "high" | "critical";
+  timesPerWeek: number;
+  offset: number; // stagger different mission types across different days
+}
+
+const LEAD_GEN_DEFS: LeadGenDef[] = [
+  {
+    type: "linkedin_engagement",
+    title: "LinkedIn Engagement Check",
+    description: "Check who liked or commented on your recent LinkedIn posts — add interesting profiles as a lead in PipelineOS",
+    xp: 20,
+    priority: "high",
+    timesPerWeek: 2,
+    offset: 0,
+  },
+  {
+    type: "website_visitors",
+    title: "Website Visitors Review",
+    description: "Review this week's website visitors — identify warm prospects and add them as a lead in PipelineOS",
+    xp: 20,
+    priority: "medium",
+    timesPerWeek: 1,
+    offset: 1,
+  },
+  {
+    type: "linkedin_prospecting",
+    title: "LinkedIn Prospecting",
+    description: "Find and connect with 3 new people in your target audience on LinkedIn",
+    xp: 15,
+    priority: "medium",
+    timesPerWeek: 2,
+    offset: 1,
+  },
+];
+
+/**
+ * Pick N evenly-spaced days from the user's work_days array.
+ * Offset staggers different mission types so they don't all land on the same days.
+ */
+function pickDays(workDays: number[], count: number, offset: number): number[] {
+  const sorted = [...workDays].sort((a, b) => a - b);
+  const n = sorted.length;
+  if (n === 0) return [];
+  if (count >= n) return sorted;
+
+  const step = n / count;
+  const result: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const idx = Math.floor(i * step + offset) % n;
+    if (!result.includes(sorted[idx])) {
+      result.push(sorted[idx]);
+    }
+  }
+  return result;
+}
+
+export async function generateLeadGenMissions(userId: string): Promise<MissionTask[]> {
+  const now = new Date();
+  const weekNum = getWeek(now, { weekStartsOn: 1 });
+  const cycleId = `${now.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+  const todayDow = getDay(now); // 0=Sun, 1=Mon, ..., 6=Sat
+  // Convert to ISO weekday: 1=Mon...7=Sun
+  const todayIso = todayDow === 0 ? 7 : todayDow;
+
+  const [workDays, completedTitles] = await Promise.all([
+    getUserWorkDays(userId),
+    getCompletedMarketingTitles(),
+  ]);
+  const completedSet = new Set(completedTitles);
+  const missions: MissionTask[] = [];
+
+  for (const def of LEAD_GEN_DEFS) {
+    const scheduledDays = pickDays(workDays, def.timesPerWeek, def.offset);
+
+    // Only show if today is one of the scheduled days
+    if (!scheduledDays.includes(todayIso)) continue;
+
+    // Determine which occurrence this is (1st or 2nd time this week)
+    const occurrenceIndex = scheduledDays.indexOf(todayIso);
+    const title = `[LG:${def.type}:${cycleId}:${occurrenceIndex + 1}] ${def.title}`;
+
+    // Skip if already completed this cycle
+    if (completedSet.has(title)) continue;
+
+    missions.push({
+      id: `lg-${def.type}-${cycleId}-${occurrenceIndex + 1}`,
+      type: def.type,
+      title,
+      description: def.description,
+      xp_value: def.xp,
+      priority: def.priority,
+      category: "marketing",
+      subcategory: "lead_generation",
+    });
+  }
+
+  return missions;
+}
+
+// ============================================
+// CARRYOVER MISSIONS
+// ============================================
+
+export interface CarryoverTask {
+  id: string;
+  title: string;
+  description: string;
+  priority: string;
+  xp_value: number;
+  due_date: string;
+  lead_id: string | null;
+  category: string | null;
+}
+
+export async function getCarryoverMissions(userId: string): Promise<CarryoverTask[]> {
+  const supabase = createClient();
+  const todayStr = format(startOfDay(new Date()), "yyyy-MM-dd");
+  // Look back up to 7 days for uncompleted tasks
+  const lookbackStr = format(subDays(new Date(), 7), "yyyy-MM-dd");
+
+  const { data } = await supabase
+    .from("tasks")
+    .select("id, title, description, priority, xp_value, due_date, lead_id, category")
+    .eq("user_id", userId)
+    .is("completed_at", null)
+    .lt("due_date", todayStr)
+    .gte("due_date", lookbackStr)
+    .order("due_date", { ascending: false });
+
+  return (data ?? []) as CarryoverTask[];
 }

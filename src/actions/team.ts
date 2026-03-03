@@ -75,3 +75,23 @@ export async function updateUserRole(userId: string, role: string) {
   revalidatePath("/settings/team");
   return { success: true };
 }
+
+export async function updateUserMissionCategories(userId: string, categories: string[]) {
+  const admin = await requireAdmin();
+  if (!admin) return { error: "Admin access required" };
+
+  const valid = ["sales", "marketing", "lead_generation"];
+  const filtered = categories.filter((c) => valid.includes(c));
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("users")
+    .update({ mission_categories: filtered })
+    .eq("id", userId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings/team");
+  revalidatePath("/missions");
+  return { success: true };
+}

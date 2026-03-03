@@ -15,7 +15,7 @@ export async function getTeamNotes(): Promise<TeamNote[]> {
     id: note.id,
     org_id: note.org_id,
     user_id: note.user_id,
-    content: note.content,
+    content: note.message,
     color: note.color,
     created_at: note.created_at,
     user_name: (note.user as { full_name: string } | null)?.full_name ?? "Unknown",
