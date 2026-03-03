@@ -87,6 +87,16 @@ export interface ScoringSetting {
   max_points: number;
 }
 
+export interface TeamNote {
+  id: string;
+  org_id: string;
+  user_id: string;
+  content: string;
+  color: string;
+  created_at: string;
+  user_name?: string;
+}
+
 export interface KPIData {
   activeMRR: number;
   weightedPipeline: number;

@@ -92,6 +92,15 @@ create table public.scoring_settings (
   max_points integer not null default 10
 );
 
+create table public.team_notes (
+  id uuid default uuid_generate_v4() primary key,
+  org_id uuid references public.organizations(id) on delete cascade not null,
+  user_id uuid references public.users(id) on delete cascade not null,
+  content text not null,
+  color text not null default 'yellow',
+  created_at timestamptz default now() not null
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -110,6 +119,7 @@ create index idx_activities_org_id on public.activities(org_id);
 create index idx_activities_lead_id on public.activities(lead_id);
 create index idx_phase_settings_org_id on public.phase_settings(org_id);
 create index idx_scoring_settings_org_id on public.scoring_settings(org_id);
+create index idx_team_notes_org_id on public.team_notes(org_id);
 
 -- ============================================
 -- ROW LEVEL SECURITY
@@ -122,6 +132,7 @@ alter table public.tasks enable row level security;
 alter table public.activities enable row level security;
 alter table public.phase_settings enable row level security;
 alter table public.scoring_settings enable row level security;
+alter table public.team_notes enable row level security;
 
 -- Helper function: get user's org_id
 create or replace function public.get_user_org_id()
@@ -249,6 +260,19 @@ create policy "Admins can delete scoring settings"
     org_id = public.get_user_org_id()
     and exists (select 1 from public.users where id = auth.uid() and role = 'admin')
   );
+
+-- Team notes: select/insert scoped to org, delete own notes
+create policy "Users can view org notes"
+  on public.team_notes for select
+  using (org_id = public.get_user_org_id());
+
+create policy "Users can insert org notes"
+  on public.team_notes for insert
+  with check (org_id = public.get_user_org_id());
+
+create policy "Users can delete own notes"
+  on public.team_notes for delete
+  using (user_id = auth.uid());
 
 -- ============================================
 -- XP RECALCULATION

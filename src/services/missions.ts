@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { MissionTask, MarketingMissionType } from "@/types";
-import { differenceInDays, parseISO, getWeek, getDay, startOfWeek, format } from "date-fns";
+import { differenceInDays, parseISO, getWeek, getDay, startOfWeek, startOfDay, format } from "date-fns";
 
 export async function getUserWorkDays(userId: string): Promise<number[]> {
   const supabase = createClient();
@@ -117,6 +117,35 @@ export async function getCompletedMissionTitles(): Promise<string[]> {
     .not("completed_at", "is", null);
 
   return (data ?? []).map((t) => t.title);
+}
+
+export async function getTodayCompletedCount(userId: string): Promise<number> {
+  const supabase = createClient();
+  const todayStr = format(startOfDay(new Date()), "yyyy-MM-dd");
+
+  const { count } = await supabase
+    .from("tasks")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("due_date", todayStr)
+    .not("completed_at", "is", null);
+
+  return count ?? 0;
+}
+
+export async function getWeeklyXp(userId: string): Promise<number> {
+  const supabase = createClient();
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekStartStr = format(weekStart, "yyyy-MM-dd");
+
+  const { data } = await supabase
+    .from("tasks")
+    .select("xp_value")
+    .eq("user_id", userId)
+    .gte("due_date", weekStartStr)
+    .not("completed_at", "is", null);
+
+  return (data ?? []).reduce((sum, t) => sum + t.xp_value, 0);
 }
 
 // ============================================

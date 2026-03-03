@@ -1,26 +1,70 @@
-import { getKPIData, calculatePipelineHealth } from "@/services/kpi";
-import { getLeadsByPhase } from "@/services/leads";
+import { calculatePipelineHealth } from "@/services/kpi";
+import { getLeadsByPhase, getLeads } from "@/services/leads";
 import { getPhaseSettings } from "@/services/scoring";
+import { getUserXpTotal } from "@/services/leaderboard";
+import { generateMissions, getCompletedMissionTitles, getTodayCompletedCount, getWeeklyXp } from "@/services/missions";
+import { getTeamNotes } from "@/services/notes";
 import { createClient } from "@/lib/supabase/server";
-import { KPICards } from "@/components/dashboard/kpi-cards";
 import { KanbanBoard } from "@/components/dashboard/kanban-board";
 import { PipelineHealth } from "@/components/dashboard/pipeline-health";
 import { AddLeadDialog } from "@/components/dashboard/add-lead-dialog";
-import type { PhaseSetting } from "@/types";
+import { PersonalStatsBar } from "@/components/dashboard/personal-stats-bar";
+import { DashboardMissions } from "@/components/dashboard/dashboard-missions";
+import { LeadWarmth } from "@/components/dashboard/lead-warmth";
+import { MotivationBoard } from "@/components/dashboard/motivation-board";
+import type { PhaseSetting, Lead, MissionTask, TeamNote } from "@/types";
 import { DEFAULT_PHASES } from "@/types";
 
 export default async function DashboardPage() {
-  let kpiData, leadsByPhase, phases, healthData;
+  let leadsByPhase: Record<string, Lead[]>;
+  let phases: PhaseSetting[];
+  let healthData;
+  let lifetimeXp = 0;
+  let missions: MissionTask[] = [];
+  let completedTitles: string[] = [];
+  let todayCompleted = 0;
+  let weeklyXp = 0;
+  let teamNotes: TeamNote[] = [];
+  let allLeads: Lead[] = [];
+  let currentUserId = "";
 
   try {
     const supabase = createClient();
-    const { data: leads } = await supabase.from("leads").select("*");
+    const { data: { user } } = await supabase.auth.getUser();
+    currentUserId = user?.id ?? "";
 
-    kpiData = await getKPIData();
-    leadsByPhase = await getLeadsByPhase();
-    healthData = calculatePipelineHealth(leads ?? []);
+    const [
+      leadsByPhaseResult,
+      allLeadsResult,
+      dbPhases,
+      xpTotal,
+      missionsResult,
+      completedResult,
+      todayResult,
+      weeklyResult,
+      notesResult,
+    ] = await Promise.all([
+      getLeadsByPhase(),
+      getLeads(),
+      getPhaseSettings(),
+      currentUserId ? getUserXpTotal(currentUserId) : Promise.resolve(0),
+      currentUserId ? generateMissions(currentUserId) : Promise.resolve([]),
+      getCompletedMissionTitles(),
+      currentUserId ? getTodayCompletedCount(currentUserId) : Promise.resolve(0),
+      currentUserId ? getWeeklyXp(currentUserId) : Promise.resolve(0),
+      getTeamNotes(),
+    ]);
 
-    const dbPhases = await getPhaseSettings();
+    leadsByPhase = leadsByPhaseResult;
+    allLeads = allLeadsResult;
+    healthData = calculatePipelineHealth(allLeads);
+    lifetimeXp = xpTotal;
+    missions = missionsResult;
+    completedTitles = completedResult;
+    todayCompleted = todayResult;
+    weeklyXp = weeklyResult;
+    teamNotes = notesResult;
+
     phases =
       dbPhases.length > 0
         ? dbPhases
@@ -30,16 +74,8 @@ export default async function DashboardPage() {
             org_id: "",
           })) as PhaseSetting[]);
   } catch {
-    // Fallback for when DB is not connected
-    kpiData = {
-      activeMRR: 42500,
-      weightedPipeline: 128750,
-      forecast3Month: 87200,
-      closeRate: 34.5,
-      avgSalesCycle: 28,
-      healthScore: 72,
-    };
     leadsByPhase = {};
+    allLeads = [];
     healthData = {
       score: 72,
       velocityScore: 20,
@@ -68,16 +104,30 @@ export default async function DashboardPage() {
         <AddLeadDialog />
       </div>
 
-      <KPICards data={kpiData} />
+      {/* Row 1: Personal Stats */}
+      <PersonalStatsBar
+        lifetimeXp={lifetimeXp}
+        todayCompleted={todayCompleted}
+        todayTotal={missions.length}
+        weeklyXp={weeklyXp}
+      />
 
+      {/* Row 2: Kanban + Missions + Health */}
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div>
           <h2 className="mb-4 text-lg font-semibold">Pipeline</h2>
           <KanbanBoard leadsByPhase={leadsByPhase} phases={phases} />
         </div>
-        <div>
+        <div className="space-y-6">
+          <DashboardMissions missions={missions} completedTitles={completedTitles} />
           <PipelineHealth data={healthData} />
         </div>
+      </div>
+
+      {/* Row 3: Lead Warmth + Motivation Board */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <LeadWarmth leads={allLeads} />
+        <MotivationBoard notes={teamNotes} currentUserId={currentUserId} />
       </div>
     </div>
   );
