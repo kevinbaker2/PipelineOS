@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { resolveTheme } from "@/lib/themes";
+import { generateWildcardPalette, THEME_CSS_VARS } from "@/lib/themes";
 
 interface ThemeContextValue {
   theme: string;
@@ -27,7 +27,6 @@ export function ThemeProvider({
   children: React.ReactNode;
 }) {
   const [theme, setThemeState] = useState(initialTheme);
-  const resolved = resolveTheme(theme);
 
   const setTheme = useCallback((t: string) => {
     setThemeState(t);
@@ -35,15 +34,25 @@ export function ThemeProvider({
 
   useEffect(() => {
     const el = document.documentElement;
-    if (resolved === "obsidian") {
+
+    // Always clean up inline wildcard vars first
+    THEME_CSS_VARS.forEach((v) => el.style.removeProperty(v));
+
+    if (theme === "wildcard") {
+      delete el.dataset.theme;
+      const palette = generateWildcardPalette();
+      Object.entries(palette.vars).forEach(([key, value]) => {
+        el.style.setProperty(key, value);
+      });
+    } else if (theme === "obsidian") {
       delete el.dataset.theme;
     } else {
-      el.dataset.theme = resolved;
+      el.dataset.theme = theme;
     }
-  }, [resolved]);
+  }, [theme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme: resolved, setTheme }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme: theme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Dices } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { THEMES, getWildcardLabel } from "@/lib/themes";
+import { THEMES, generateWildcardPalette } from "@/lib/themes";
 import { useTheme } from "@/components/theme-provider";
 import { updateTheme } from "@/actions/settings";
 import { Card } from "@/components/ui/card";
@@ -12,7 +12,7 @@ export function AppearanceSettings({ currentTheme }: { currentTheme: string }) {
   const { theme, setTheme } = useTheme();
   const [saving, setSaving] = useState<string | null>(null);
   const activeTheme = theme || currentTheme;
-  const wildcardLabel = getWildcardLabel(activeTheme);
+  const wildcardPalette = generateWildcardPalette();
 
   async function handleSelect(id: string) {
     if (id === activeTheme) return;
@@ -28,15 +28,13 @@ export function AppearanceSettings({ currentTheme }: { currentTheme: string }) {
         <h3 className="text-base font-medium">Theme</h3>
         <p className="text-sm text-muted-foreground">
           Choose your preferred color theme
-          {wildcardLabel && (
-            <span className="ml-2 text-primary">({wildcardLabel})</span>
-          )}
         </p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {THEMES.map((t) => {
           const isActive = activeTheme === t.id;
           const isWildcard = t.id === "wildcard";
+          const preview = isWildcard ? wildcardPalette.preview : t.preview;
           return (
             <Card
               key={t.id}
@@ -63,22 +61,36 @@ export function AppearanceSettings({ currentTheme }: { currentTheme: string }) {
 
               {/* Preview swatches */}
               <div className="mb-3 flex h-12 overflow-hidden rounded-md border">
-                {isWildcard ? (
-                  <div className="flex w-full items-center justify-center bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
-                    <Dices className="h-6 w-6 text-white" />
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex-1" style={{ backgroundColor: t.preview.bg }} />
-                    <div className="flex-1" style={{ backgroundColor: t.preview.card }} />
-                    <div className="w-8" style={{ backgroundColor: t.preview.primary }} />
-                    <div className="w-8" style={{ backgroundColor: t.preview.accent }} />
-                  </>
-                )}
+                <div className="flex-1" style={{ backgroundColor: preview.bg }} />
+                <div className="flex-1" style={{ backgroundColor: preview.card }} />
+                <div className="w-8" style={{ backgroundColor: preview.primary }} />
+                <div className="w-8" style={{ backgroundColor: preview.accent }} />
               </div>
 
-              <p className="text-sm font-medium">{t.name}</p>
-              <p className="text-xs text-muted-foreground">{t.description}</p>
+              <div className="flex items-center gap-1.5">
+                {isWildcard && <Dices className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                <p className="text-sm font-medium">{t.name}</p>
+              </div>
+
+              {isWildcard ? (
+                <div className="mt-1 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Today&apos;s palette</span>
+                    <div className="flex gap-1">
+                      {[preview.bg, preview.card, preview.primary, preview.accent].map((color, i) => (
+                        <div
+                          key={i}
+                          className="h-2.5 w-2.5 rounded-full border border-white/20"
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t.description}</p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">{t.description}</p>
+              )}
             </Card>
           );
         })}
