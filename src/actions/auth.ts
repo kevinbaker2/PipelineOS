@@ -76,16 +76,17 @@ export async function signup(formData: FormData) {
 
   // Insert default scoring settings
   const scoring = [
-    { org_id: org.id, category: "firmographic", key: "company_size", label: "Company Size (50+ employees)", max_points: 15 },
-    { org_id: org.id, category: "firmographic", key: "industry_fit", label: "Industry Fit", max_points: 15 },
-    { org_id: org.id, category: "firmographic", key: "geography", label: "Target Geography", max_points: 10 },
-    { org_id: org.id, category: "firmographic", key: "budget_authority", label: "Budget Authority Confirmed", max_points: 10 },
-    { org_id: org.id, category: "engagement", key: "response_time", label: "Response Time < 24h", max_points: 10 },
-    { org_id: org.id, category: "engagement", key: "meetings_held", label: "Multiple Meetings Held", max_points: 10 },
-    { org_id: org.id, category: "engagement", key: "stakeholder_access", label: "Decision Maker Access", max_points: 10 },
-    { org_id: org.id, category: "strategic", key: "expansion_potential", label: "Expansion Potential", max_points: 10 },
-    { org_id: org.id, category: "strategic", key: "competitive_position", label: "No Incumbent Competitor", max_points: 5 },
-    { org_id: org.id, category: "strategic", key: "timeline_urgency", label: "Urgent Timeline", max_points: 5 },
+    { org_id: org.id, category: "firmographic", key: "company_size", label: "Company size 50+", max_points: 15 },
+    { org_id: org.id, category: "firmographic", key: "industry_fit", label: "Industry fit", max_points: 15 },
+    { org_id: org.id, category: "firmographic", key: "own_product", label: "Has own product", max_points: 10 },
+    { org_id: org.id, category: "firmographic", key: "geography", label: "Target geography", max_points: 10 },
+    { org_id: org.id, category: "engagement", key: "meetings_held", label: "Meetings held", max_points: 15 },
+    { org_id: org.id, category: "engagement", key: "decision_maker", label: "Decision maker access", max_points: 10 },
+    { org_id: org.id, category: "engagement", key: "inbound_lead", label: "Inbound lead", max_points: 10 },
+    { org_id: org.id, category: "strategic", key: "scaling", label: "Scaling or hiring", max_points: 15 },
+    { org_id: org.id, category: "strategic", key: "no_competitor", label: "No incumbent competitor", max_points: 10 },
+    { org_id: org.id, category: "strategic", key: "budget_confirmed", label: "Budget confirmed", max_points: 10 },
+    { org_id: org.id, category: "strategic", key: "urgency", label: "Urgent timeline", max_points: 5 },
   ];
   await admin.from("scoring_settings").insert(scoring);
 

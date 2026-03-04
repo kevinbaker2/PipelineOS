@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save } from "lucide-react";
-import { updatePhaseSetting, updateScoringSetting } from "@/actions/settings";
+import { Save, RotateCcw } from "lucide-react";
+import { updatePhaseSetting, updateScoringSetting, resetScoringToDefaults } from "@/actions/settings";
 import { ScheduleSettings } from "@/components/settings/schedule-settings";
 import type { PhaseSetting, ScoringSetting } from "@/types";
 
@@ -44,6 +44,14 @@ export function SettingsView({ phases, scoring, workDays, missionCategories }: S
       </TabsContent>
 
       <TabsContent value="scoring" className="space-y-4 mt-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Total: {scoring.reduce((s, i) => s + i.max_points, 0)} pts — scores are normalized to 0-100
+            </p>
+          </div>
+          <ResetScoringButton />
+        </div>
         {(["firmographic", "engagement", "strategic"] as const).map(
           (category) => {
             const items = scoring.filter((s) => s.category === category);
@@ -126,6 +134,25 @@ function PhaseRow({ phase }: { phase: PhaseSetting }) {
         </Button>
       </div>
     </div>
+  );
+}
+
+function ResetScoringButton() {
+  const [resetting, setResetting] = useState(false);
+
+  async function handleReset() {
+    if (!confirm("Reset all scoring criteria to defaults? This will replace your current criteria.")) return;
+    setResetting(true);
+    await resetScoringToDefaults();
+    setResetting(false);
+    window.location.reload();
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={handleReset} disabled={resetting} className="gap-2">
+      <RotateCcw className="h-3.5 w-3.5" />
+      {resetting ? "Resetting..." : "Reset to defaults"}
+    </Button>
   );
 }
 

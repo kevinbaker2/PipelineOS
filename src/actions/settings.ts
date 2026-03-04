@@ -67,6 +67,50 @@ export async function deleteScoringSetting(id: string) {
   return { success: true };
 }
 
+export async function resetScoringToDefaults() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Unauthorized" };
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("org_id, role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || profile.role !== "admin") return { error: "Admin only" };
+
+  // Delete all existing scoring settings for this org
+  const { error: delError } = await supabase
+    .from("scoring_settings")
+    .delete()
+    .eq("org_id", profile.org_id);
+
+  if (delError) return { error: delError.message };
+
+  // Insert new defaults
+  const defaults = [
+    { org_id: profile.org_id, category: "firmographic", key: "company_size", label: "Company size 50+", max_points: 15 },
+    { org_id: profile.org_id, category: "firmographic", key: "industry_fit", label: "Industry fit", max_points: 15 },
+    { org_id: profile.org_id, category: "firmographic", key: "own_product", label: "Has own product", max_points: 10 },
+    { org_id: profile.org_id, category: "firmographic", key: "geography", label: "Target geography", max_points: 10 },
+    { org_id: profile.org_id, category: "engagement", key: "meetings_held", label: "Meetings held", max_points: 15 },
+    { org_id: profile.org_id, category: "engagement", key: "decision_maker", label: "Decision maker access", max_points: 10 },
+    { org_id: profile.org_id, category: "engagement", key: "inbound_lead", label: "Inbound lead", max_points: 10 },
+    { org_id: profile.org_id, category: "strategic", key: "scaling", label: "Scaling or hiring", max_points: 15 },
+    { org_id: profile.org_id, category: "strategic", key: "no_competitor", label: "No incumbent competitor", max_points: 10 },
+    { org_id: profile.org_id, category: "strategic", key: "budget_confirmed", label: "Budget confirmed", max_points: 10 },
+    { org_id: profile.org_id, category: "strategic", key: "urgency", label: "Urgent timeline", max_points: 5 },
+  ];
+
+  const { error: insError } = await supabase.from("scoring_settings").insert(defaults);
+  if (insError) return { error: insError.message };
+
+  revalidatePath("/settings");
+  revalidatePath("/leads");
+  return { success: true };
+}
+
 export async function updateWorkDays(workDays: number[]) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
