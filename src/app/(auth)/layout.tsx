@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { ThemeApplier } from "@/components/theme-applier";
 
 export default async function AuthLayout({
   children,
@@ -6,6 +7,7 @@ export default async function AuthLayout({
   children: React.ReactNode;
 }) {
   let userInfo: { email: string; full_name: string; role: string; xp_total: number } | undefined;
+  let userTheme = "obsidian";
 
   if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     try {
@@ -27,6 +29,7 @@ export default async function AuthLayout({
             role: profile.role,
             xp_total: profile.xp_total ?? 0,
           };
+          userTheme = profile.theme ?? "obsidian";
         }
       }
     } catch (err) {
@@ -36,6 +39,7 @@ export default async function AuthLayout({
 
   return (
     <AppShell user={userInfo || { email: "demo@pipeline.os", full_name: "Demo User", role: "admin", xp_total: 0 }}>
+      <ThemeApplier theme={userTheme} />
       {children}
     </AppShell>
   );

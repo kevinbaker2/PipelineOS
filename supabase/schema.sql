@@ -25,6 +25,7 @@ create table public.users (
   xp_total integer not null default 0,
   work_days integer[] default '{1,2,3,4,5}',
   mission_categories text[] default '{sales,marketing}',
+  theme text default 'obsidian',
   created_at timestamptz default now() not null
 );
 

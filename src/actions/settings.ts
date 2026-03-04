@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { VALID_THEMES } from "@/lib/themes";
 
 export async function updatePhaseSetting(id: string, data: { name?: string; target_days?: number; color?: string }) {
   const supabase = createClient();
@@ -142,5 +143,23 @@ export async function updateMissionCategories(categories: string[]) {
 
   revalidatePath("/settings");
   revalidatePath("/missions");
+  return { success: true };
+}
+
+export async function updateTheme(theme: string) {
+  if (!VALID_THEMES.has(theme)) return { error: "Invalid theme" };
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Unauthorized" };
+
+  const { error } = await supabase
+    .from("users")
+    .update({ theme })
+    .eq("id", user.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
   return { success: true };
 }

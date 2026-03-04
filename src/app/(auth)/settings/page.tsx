@@ -11,6 +11,7 @@ export default async function SettingsPage() {
   let isAdmin = false;
   let workDays = [1, 2, 3, 4, 5];
   let missionCategories = ["sales", "marketing"];
+  let currentTheme = "obsidian";
 
   try {
     const supabase = createClient();
@@ -19,12 +20,13 @@ export default async function SettingsPage() {
     if (user) {
       const { data: profile } = await supabase
         .from("users")
-        .select("role, work_days, mission_categories")
+        .select("role, work_days, mission_categories, theme")
         .eq("id", user.id)
         .single();
       isAdmin = profile?.role === "admin";
       if (profile?.work_days) workDays = profile.work_days;
       if (profile?.mission_categories) missionCategories = profile.mission_categories;
+      if (profile?.theme) currentTheme = profile.theme;
     }
 
     const dbPhases = await getPhaseSettings();
@@ -50,7 +52,7 @@ export default async function SettingsPage() {
         </p>
       </div>
       <SettingsNav isAdmin={isAdmin} />
-      <SettingsView phases={phases} scoring={scoring} workDays={workDays} missionCategories={missionCategories} />
+      <SettingsView phases={phases} scoring={scoring} workDays={workDays} missionCategories={missionCategories} currentTheme={currentTheme} />
     </div>
   );
 }

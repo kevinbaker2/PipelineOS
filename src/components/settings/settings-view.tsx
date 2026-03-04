@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Save, RotateCcw } from "lucide-react";
 import { updatePhaseSetting, updateScoringSetting, resetScoringToDefaults } from "@/actions/settings";
 import { ScheduleSettings } from "@/components/settings/schedule-settings";
+import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import type { PhaseSetting, ScoringSetting } from "@/types";
 
 interface SettingsViewProps {
@@ -17,15 +18,17 @@ interface SettingsViewProps {
   scoring: ScoringSetting[];
   workDays: number[];
   missionCategories: string[];
+  currentTheme: string;
 }
 
-export function SettingsView({ phases, scoring, workDays, missionCategories }: SettingsViewProps) {
+export function SettingsView({ phases, scoring, workDays, missionCategories, currentTheme }: SettingsViewProps) {
   return (
     <Tabs defaultValue="phases">
       <TabsList>
         <TabsTrigger value="phases">Pipeline Phases</TabsTrigger>
         <TabsTrigger value="scoring">Lead Scoring</TabsTrigger>
         <TabsTrigger value="schedule">Schedule</TabsTrigger>
+        <TabsTrigger value="appearance">Appearance</TabsTrigger>
       </TabsList>
 
       <TabsContent value="phases" className="space-y-4 mt-4">
@@ -86,6 +89,10 @@ export function SettingsView({ phases, scoring, workDays, missionCategories }: S
 
       <TabsContent value="schedule" className="space-y-4 mt-4">
         <ScheduleSettings workDays={workDays} missionCategories={missionCategories} />
+      </TabsContent>
+
+      <TabsContent value="appearance" className="space-y-4 mt-4">
+        <AppearanceSettings currentTheme={currentTheme} />
       </TabsContent>
     </Tabs>
   );
