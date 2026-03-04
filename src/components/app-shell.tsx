@@ -26,10 +26,10 @@ import { useRouter } from "next/navigation";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: Users },
-  { href: "/closed", label: "Closed", icon: Trophy },
-  { href: "/forecast", label: "Forecast", icon: TrendingUp },
   { href: "/missions", label: "Missions", icon: Target },
   { href: "/leaderboard", label: "Leaderboard", icon: Medal },
+  { href: "/forecast", label: "Forecast", icon: TrendingUp },
+  { href: "/closed", label: "Closed Deals", icon: Trophy },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
