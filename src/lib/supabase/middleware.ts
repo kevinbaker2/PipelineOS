@@ -31,7 +31,11 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError) {
+    console.error("[middleware] Auth error:", authError.message, "path:", request.nextUrl.pathname);
+  }
 
   // Redirect unauthenticated users to login (except public routes)
   const isPublicRoute = request.nextUrl.pathname === "/login" ||

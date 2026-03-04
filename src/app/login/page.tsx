@@ -25,9 +25,11 @@ export default function LoginPage() {
         setLoading(false);
       } else {
         router.push("/dashboard");
+        router.refresh();
       }
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setError(message);
       setLoading(false);
     }
   }

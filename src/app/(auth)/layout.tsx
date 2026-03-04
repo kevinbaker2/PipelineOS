@@ -29,8 +29,8 @@ export default async function AuthLayout({
           };
         }
       }
-    } catch {
-      // Supabase not available
+    } catch (err) {
+      console.error("[auth:layout] Failed to load user profile:", err);
     }
   }
 

@@ -4,18 +4,27 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 export async function login(formData: FormData) {
-  const supabase = createClient();
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+  try {
+    const supabase = createClient();
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+    console.log("[auth:login] Attempting login for:", email);
 
-  if (error) {
-    return { error: error.message };
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      console.error("[auth:login] Supabase error:", error.message, error.status);
+      return { error: error.message };
+    }
+
+    console.log("[auth:login] Login successful for:", email);
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch (err) {
+    console.error("[auth:login] Unexpected error:", err);
+    return { error: err instanceof Error ? err.message : "Login failed. Please try again." };
   }
-
-  revalidatePath("/", "layout");
-  return { success: true };
 }
 
 export async function signup(formData: FormData) {
