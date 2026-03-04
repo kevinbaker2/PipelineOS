@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { createClient as createJsClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
@@ -7,6 +7,10 @@ export function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("[supabase:server] Missing env vars at createClient() call:", {
+      url: supabaseUrl ? "SET" : "MISSING",
+      key: supabaseAnonKey ? "SET" : "MISSING",
+    });
     throw new Error(
       `Missing Supabase env vars: URL=${supabaseUrl ? "set" : "MISSING"}, KEY=${supabaseAnonKey ? "set" : "MISSING"}`
     );
@@ -14,39 +18,23 @@ export function createClient() {
 
   const cookieStore = cookies();
 
-  // cookies() returns a Promise in Next.js 14.2+ but the Supabase SSR
-  // cookie adapter expects sync access. We handle both cases.
-  const getCookie = (name: string) => {
-    try {
-      const store = cookieStore as ReturnType<typeof cookies> & { get: (name: string) => { value: string } | undefined };
-      return store.get(name)?.value;
-    } catch {
-      return undefined;
-    }
-  };
-
-  const setCookie = (name: string, value: string, options: CookieOptions) => {
-    try {
-      const store = cookieStore as ReturnType<typeof cookies> & { set: (opts: Record<string, unknown>) => void };
-      store.set({ name, value, ...options });
-    } catch {
-      // Server component context - ignore
-    }
-  };
-
-  return createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        get: getCookie,
-        set: setCookie,
-        remove(name: string, options: CookieOptions) {
-          setCookie(name, "", options);
-        },
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
       },
-    }
-  );
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        } catch {
+          // setAll is called from a Server Component — ignore.
+          // Middleware will handle refreshing the session.
+        }
+      },
+    },
+  });
 }
 
 export function createServiceClient() {
