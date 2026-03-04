@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -287,11 +288,7 @@ function MemberRow({
     });
   }
 
-  const joinedDate = new Date(member.created_at).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const joinedDate = format(new Date(member.created_at), "dd MMM yyyy");
 
   const categories = member.mission_categories ?? ["sales", "marketing"];
 

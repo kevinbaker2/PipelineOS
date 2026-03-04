@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { Lead } from "@/types";
-import { differenceInDays, parseISO } from "date-fns";
+import { differenceInDays, parseISO, format } from "date-fns";
 
 interface ClosedUser {
   id: string;
@@ -154,10 +154,7 @@ function DealsTable({
       {/* Mobile: card layout */}
       <div className="flex flex-col gap-3 md:hidden">
         {leads.map((lead) => {
-          const closeDate = new Date(lead.last_activity_at).toLocaleDateString(
-            "en-US",
-            { month: "short", day: "numeric", year: "numeric" }
-          );
+          const closeDate = format(new Date(lead.last_activity_at), "dd MMM yyyy");
 
           return (
             <Link key={lead.id} href={`/leads/${lead.id}`}>
@@ -216,10 +213,7 @@ function DealsTable({
             parseISO(lead.last_activity_at),
             parseISO(lead.created_at)
           );
-          const closeDate = new Date(lead.last_activity_at).toLocaleDateString(
-            "en-US",
-            { month: "short", day: "numeric", year: "numeric" }
-          );
+          const closeDate = format(new Date(lead.last_activity_at), "dd MMM yyyy");
           const assignedName = lead.assigned_to
             ? userMap.get(lead.assigned_to) ?? "Unassigned"
             : "Unassigned";

@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency, cn } from "@/lib/utils";
+import { format } from "date-fns";
 import { updateLead, deleteLead, addActivity, updateLeadScore } from "@/actions/leads";
 import type { Lead, Activity, ActivityType, ScoringSetting } from "@/types";
 import Link from "next/link";
@@ -417,7 +418,7 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
                             {a.type}
                           </Badge>
                           <span className="text-xs text-muted-foreground">
-                            {new Date(a.created_at).toLocaleDateString()}
+                            {format(new Date(a.created_at), "dd-MM-yyyy")}
                           </span>
                         </div>
                         <p className="mt-1 text-sm">{a.notes}</p>
@@ -524,12 +525,12 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
               <Separator />
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Created</span>
-                <span>{new Date(lead.created_at).toLocaleDateString()}</span>
+                <span>{format(new Date(lead.created_at), "dd-MM-yyyy")}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Last Activity</span>
                 <span>
-                  {new Date(lead.last_activity_at).toLocaleDateString()}
+                  {format(new Date(lead.last_activity_at), "dd-MM-yyyy")}
                 </span>
               </div>
               <div className="flex justify-between">
