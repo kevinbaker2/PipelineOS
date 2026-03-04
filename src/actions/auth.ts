@@ -103,6 +103,30 @@ export async function signup(formData: FormData) {
   return { success: true };
 }
 
+export async function resetPassword(formData: FormData) {
+  try {
+    const supabase = createClient();
+    const email = formData.get("email") as string;
+    const { headers } = await import("next/headers");
+    const headersList = headers();
+    const origin = headersList.get("origin") || headersList.get("x-forwarded-host") || headersList.get("host") || "";
+    const protocol = headersList.get("x-forwarded-proto") || "https";
+    const siteUrl = origin.startsWith("http") ? origin : `${protocol}://${origin}`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${siteUrl}/auth/callback?type=recovery`,
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to send reset email." };
+  }
+}
+
 export async function updatePassword(formData: FormData) {
   try {
     const supabase = createClient();
