@@ -13,7 +13,7 @@ import { useState, useTransition, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn, getLevel, getXpInCurrentLevel, XP_PER_LEVEL } from "@/lib/utils";
+import { cn, getLevel, getXpInCurrentLevel, XP_PER_LEVEL, stripBracketPrefix } from "@/lib/utils";
 import type { MissionTask, SalesMissionType } from "@/types";
 import Link from "next/link";
 import { completeMission } from "@/actions/missions";
@@ -193,7 +193,7 @@ export function MissionList({ missions, completedTitles, lifetimeXp }: MissionLi
                         isCompleted && "line-through"
                       )}
                     >
-                      {mission.title}
+                      {stripBracketPrefix(mission.title)}
                     </h3>
                     <Badge
                       variant="outline"

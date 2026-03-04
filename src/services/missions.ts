@@ -50,12 +50,13 @@ function getDaySeed(): number {
   return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
 }
 
-export type MissionIntensity = "normal" | "more" | "lighter";
+export type MissionIntensity = "normal" | "more" | "lighter" | "all";
 
 function getXpBudget(intensity: MissionIntensity): number {
   switch (intensity) {
     case "lighter": return 60;
     case "more": return 150;
+    case "all": return Infinity;
     default: return 100;
   }
 }

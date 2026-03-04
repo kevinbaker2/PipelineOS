@@ -30,3 +30,7 @@ export function parseStepTitle(title: string): { displayTitle: string } | null {
   if (!match) return null;
   return { displayTitle: match[1] };
 }
+
+export function stripBracketPrefix(title: string): string {
+  return title.replace(/^\[[^\]]*\]\s*/, "");
+}

@@ -10,29 +10,15 @@ import {
   getUserMissionCategories,
   getCarryoverMissions,
 } from "@/services/missions";
-import type { MissionIntensity } from "@/services/missions";
 import { getUserXpTotal } from "@/services/leaderboard";
-import { MissionList } from "@/components/missions/mission-list";
-import { MarketingMissionList } from "@/components/missions/marketing-mission-list";
+import { MissionsPageContent } from "@/components/missions/missions-page-content";
 import { getDailyQuote } from "@/lib/quotes";
 import type { MissionTask } from "@/types";
 import type { CarryoverTask } from "@/services/missions";
-import Link from "next/link";
 import { format } from "date-fns";
 
-interface MissionsPageProps {
-  searchParams: Promise<{ intensity?: string }>;
-}
-
-export default async function MissionsPage({ searchParams }: MissionsPageProps) {
-  const params = await searchParams;
-  const intensity = (
-    ["normal", "more", "lighter"].includes(params.intensity ?? "")
-      ? params.intensity
-      : "normal"
-  ) as MissionIntensity;
-
-  let salesMissions: MissionTask[];
+export default async function MissionsPage() {
+  let allSalesMissions: MissionTask[];
   let completedTitles: string[] = [];
   let lifetimeXp = 0;
   let contentMissions: MissionTask[] = [];
@@ -63,7 +49,7 @@ export default async function MissionsPage({ searchParams }: MissionsPageProps) 
       carryoverTasks = await getCarryoverMissions(user.id);
 
       if (isDayOff) {
-        salesMissions = [];
+        allSalesMissions = [];
         lifetimeXp = await getUserXpTotal(user.id);
       } else {
         const showSales = missionCategories.includes("sales");
@@ -80,7 +66,7 @@ export default async function MissionsPage({ searchParams }: MissionsPageProps) 
           mktCompleted,
           mktWeeklyXp,
         ] = await Promise.all([
-          showSales ? generateMissions(user.id, intensity) : Promise.resolve([]),
+          showSales ? generateMissions(user.id, "all") : Promise.resolve([]),
           showSales ? getCompletedMissionTitles() : Promise.resolve([]),
           getUserXpTotal(user.id),
           showMarketing ? generateMarketingMissions(user.id) : Promise.resolve([]),
@@ -89,7 +75,7 @@ export default async function MissionsPage({ searchParams }: MissionsPageProps) 
           needMktData ? getWeeklyMarketingXp(user.id) : Promise.resolve(0),
         ]);
 
-        salesMissions = sales;
+        allSalesMissions = sales;
         completedTitles = salesCompleted;
         lifetimeXp = xp;
         contentMissions = content;
@@ -98,11 +84,11 @@ export default async function MissionsPage({ searchParams }: MissionsPageProps) 
         weeklyMktXp = mktWeeklyXp;
       }
     } else {
-      salesMissions = [];
+      allSalesMissions = [];
     }
   } catch {
     // Demo fallback
-    salesMissions = [
+    allSalesMissions = [
       {
         id: "demo-1",
         type: "stagnation",
@@ -170,12 +156,6 @@ export default async function MissionsPage({ searchParams }: MissionsPageProps) 
 
   const quote = getDailyQuote();
   const todayLabel = format(new Date(), "EEEE, MMMM d");
-  const allTodayMissions = [
-    ...salesMissions,
-    ...contentMissions,
-    ...leadGenMissions,
-  ];
-  const totalTodayXp = allTodayMissions.reduce((s, m) => s + m.xp_value, 0);
 
   if (isDayOff) {
     return (
@@ -197,18 +177,9 @@ export default async function MissionsPage({ searchParams }: MissionsPageProps) 
             Your work schedule doesn&apos;t include today. Missions will resume on your next working day.
           </p>
         </div>
-
-        {/* Show carryover even on day off */}
-        {carryoverTasks.length > 0 && (
-          <CarryoverSection tasks={carryoverTasks} />
-        )}
       </div>
     );
   }
-
-  const showSales = missionCategories.includes("sales");
-  const showMarketing = missionCategories.includes("marketing");
-  const showLeadGen = missionCategories.includes("lead_generation");
 
   return (
     <div className="space-y-8">
@@ -222,128 +193,18 @@ export default async function MissionsPage({ searchParams }: MissionsPageProps) 
         </p>
       </div>
 
-      {/* Today's Focus header + intensity buttons */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Today&apos;s Focus</h1>
-          <p className="text-sm text-muted-foreground">
-            {todayLabel} &middot; {allTodayMissions.length} missions &middot; {totalTodayXp} XP
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            href={intensity === "lighter" ? "/missions" : "/missions?intensity=lighter"}
-            className={`inline-block rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-              intensity === "lighter"
-                ? "border-sky-500/50 bg-sky-500/10 text-sky-400"
-                : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
-            Lighter day today
-          </Link>
-          <Link
-            href={intensity === "more" ? "/missions" : "/missions?intensity=more"}
-            className={`inline-block rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-              intensity === "more"
-                ? "border-orange-500/50 bg-orange-500/10 text-orange-400"
-                : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
-            I want to do more today
-          </Link>
-        </div>
-      </div>
-
-      {/* Carryover tasks */}
-      {carryoverTasks.length > 0 && (
-        <CarryoverSection tasks={carryoverTasks} />
-      )}
-
-      {showSales && (
-        <MissionList
-          missions={salesMissions}
-          completedTitles={completedTitles}
-          lifetimeXp={lifetimeXp}
-        />
-      )}
-
-      {showLeadGen && leadGenMissions.length > 0 && (
-        <div className="border-t border-border pt-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold">{"\uD83C\uDFAF"} Lead Generation</h2>
-            <p className="text-sm text-muted-foreground">
-              LinkedIn engagement, prospecting &amp; website visitor follow-ups
-            </p>
-          </div>
-          <MarketingMissionList
-            missions={leadGenMissions}
-            completedTitles={completedMarketingTitles}
-            weeklyXp={weeklyMktXp}
-          />
-        </div>
-      )}
-
-      {showMarketing && (
-        <div className="border-t border-border pt-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold">{"\uD83D\uDCE3"} Content &amp; Marketing</h2>
-            <p className="text-sm text-muted-foreground">
-              Weekly &amp; monthly content workflows with step-by-step progress
-            </p>
-          </div>
-          <MarketingMissionList
-            missions={contentMissions}
-            completedTitles={completedMarketingTitles}
-            weeklyXp={weeklyMktXp}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CarryoverSection({ tasks }: { tasks: CarryoverTask[] }) {
-  const totalCarryXp = tasks.reduce((s, t) => s + t.xp_value, 0);
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="text-amber-400">&#x26A0;&#xFE0F;</span>
-        <h2 className="text-base font-semibold text-amber-400">
-          Carried Over ({tasks.length})
-        </h2>
-        <span className="text-xs text-muted-foreground">
-          +{totalCarryXp} XP unclaimed
-        </span>
-      </div>
-      <div className="grid gap-2">
-        {tasks.map((task) => (
-          <div
-            key={task.id}
-            className="flex items-center gap-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3"
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
-              <span className="text-xs font-bold text-amber-400">!</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">{task.title}</p>
-              <p className="text-xs text-muted-foreground">
-                Due {task.due_date} &middot; {task.priority}
-              </p>
-            </div>
-            <span className="shrink-0 text-xs font-bold text-amber-400">
-              +{task.xp_value} XP
-            </span>
-            {task.lead_id && (
-              <Link href={`/leads/${task.lead_id}`}>
-                <button className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/50">
-                  View
-                </button>
-              </Link>
-            )}
-          </div>
-        ))}
-      </div>
+      <MissionsPageContent
+        allSalesMissions={allSalesMissions}
+        contentMissions={contentMissions}
+        leadGenMissions={leadGenMissions}
+        completedTitles={completedTitles}
+        completedMarketingTitles={completedMarketingTitles}
+        lifetimeXp={lifetimeXp}
+        weeklyMktXp={weeklyMktXp}
+        missionCategories={missionCategories}
+        carryoverTasks={carryoverTasks}
+        todayLabel={todayLabel}
+      />
     </div>
   );
 }

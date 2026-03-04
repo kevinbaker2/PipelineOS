@@ -11,7 +11,7 @@ import { useState, useTransition, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, stripBracketPrefix } from "@/lib/utils";
 import type { MissionTask, SalesMissionType } from "@/types";
 import Link from "next/link";
 import { completeMission } from "@/actions/missions";
@@ -115,7 +115,7 @@ export function DashboardMissions({ missions, completedTitles }: DashboardMissio
 
               <div className="flex-1 min-w-0">
                 <p className={cn("text-xs font-medium truncate", isCompleted && "line-through")}>
-                  {mission.title}
+                  {stripBracketPrefix(mission.title)}
                 </p>
               </div>
 
