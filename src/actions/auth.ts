@@ -103,6 +103,24 @@ export async function signup(formData: FormData) {
   return { success: true };
 }
 
+export async function updatePassword(formData: FormData) {
+  try {
+    const supabase = createClient();
+    const password = formData.get("password") as string;
+
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to update password." };
+  }
+}
+
 export async function signOut() {
   const supabase = createClient();
   await supabase.auth.signOut();
