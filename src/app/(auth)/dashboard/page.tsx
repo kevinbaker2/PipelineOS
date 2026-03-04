@@ -2,7 +2,16 @@ import { calculatePipelineHealth } from "@/services/kpi";
 import { getLeadsByPhase, getLeads } from "@/services/leads";
 import { getPhaseSettings } from "@/services/scoring";
 import { getUserXpTotal } from "@/services/leaderboard";
-import { generateMissions, getCompletedMissionTitles, getTodayCompletedCount, getWeeklyXp } from "@/services/missions";
+import {
+  generateMissions,
+  getCompletedMissionTitles,
+  getTodayCompletedCount,
+  getWeeklyXp,
+  generateMarketingMissions,
+  generateLeadGenMissions,
+  getUserMissionCategories,
+  getCompletedMarketingTitles,
+} from "@/services/missions";
 import { getTeamNotes } from "@/services/notes";
 import { createClient } from "@/lib/supabase/server";
 import { KanbanBoard } from "@/components/dashboard/kanban-board";
@@ -33,37 +42,61 @@ export default async function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser();
     currentUserId = user?.id ?? "";
 
+    // Get user's enabled mission categories first
+    const categories = currentUserId
+      ? await getUserMissionCategories(currentUserId)
+      : ["sales"];
+    const showSales = categories.includes("sales");
+    const showMarketing = categories.includes("marketing");
+    const showLeadGen = categories.includes("lead_generation");
+    const needMktCompleted = showMarketing || showLeadGen;
+
     const [
       leadsByPhaseResult,
       allLeadsResult,
       dbPhases,
       xpTotal,
-      missionsResult,
-      completedResult,
+      salesMissionsResult,
+      salesCompletedResult,
       todayResult,
       weeklyResult,
       notesResult,
+      marketingMissionsResult,
+      leadGenMissionsResult,
+      mktCompletedResult,
     ] = await Promise.all([
       getLeadsByPhase(),
       getLeads(),
       getPhaseSettings(),
       currentUserId ? getUserXpTotal(currentUserId) : Promise.resolve(0),
-      currentUserId ? generateMissions(currentUserId) : Promise.resolve([]),
+      showSales && currentUserId ? generateMissions(currentUserId) : Promise.resolve([]),
       getCompletedMissionTitles(),
       currentUserId ? getTodayCompletedCount(currentUserId) : Promise.resolve(0),
       currentUserId ? getWeeklyXp(currentUserId) : Promise.resolve(0),
       getTeamNotes(),
+      showMarketing && currentUserId ? generateMarketingMissions(currentUserId) : Promise.resolve([]),
+      showLeadGen && currentUserId ? generateLeadGenMissions(currentUserId) : Promise.resolve([]),
+      needMktCompleted ? getCompletedMarketingTitles() : Promise.resolve([]),
     ]);
 
     leadsByPhase = leadsByPhaseResult;
     allLeads = allLeadsResult;
     healthData = calculatePipelineHealth(allLeads);
     lifetimeXp = xpTotal;
-    missions = missionsResult;
-    completedTitles = completedResult;
     todayCompleted = todayResult;
     weeklyXp = weeklyResult;
     teamNotes = notesResult;
+
+    // Merge all missions, sort by priority
+    const allMissions = [
+      ...salesMissionsResult,
+      ...marketingMissionsResult,
+      ...leadGenMissionsResult,
+    ];
+    const priorityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+    allMissions.sort((a, b) => (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3));
+    missions = allMissions;
+    completedTitles = [...salesCompletedResult, ...mktCompletedResult];
 
     phases =
       dbPhases.length > 0

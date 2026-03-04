@@ -37,6 +37,16 @@ const priorityColors: Record<string, string> = {
   low: "bg-muted text-muted-foreground",
 };
 
+function getCategoryBadge(mission: MissionTask) {
+  if (mission.subcategory === "lead_generation") {
+    return { emoji: "\uD83C\uDFAF", label: "Lead Gen" };
+  }
+  if (mission.category === "marketing") {
+    return { emoji: "\uD83D\uDCE3", label: "Marketing" };
+  }
+  return { emoji: "\uD83D\uDCBC", label: "Sales" };
+}
+
 interface DashboardMissionsProps {
   missions: MissionTask[];
   completedTitles: string[];
@@ -63,7 +73,8 @@ export function DashboardMissions({ missions, completedTitles }: DashboardMissio
         mission.description,
         mission.priority,
         mission.xp_value,
-        mission.lead_id
+        mission.lead_id,
+        mission.category ?? "sales"
       );
     });
   }, [startTransition]);
@@ -78,6 +89,7 @@ export function DashboardMissions({ missions, completedTitles }: DashboardMissio
           const Icon = typeIcons[mission.type as SalesMissionType] ?? AlertTriangle;
           const isCompleted = completed.has(mission.id);
           const isCelebrating = celebrating === mission.id;
+          const badge = getCategoryBadge(mission);
 
           return (
             <div
@@ -97,7 +109,7 @@ export function DashboardMissions({ missions, completedTitles }: DashboardMissio
                 {isCompleted ? (
                   <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                 ) : (
-                  <Icon className={cn("h-4 w-4", typeColors[mission.type as SalesMissionType])} />
+                  <Icon className={cn("h-4 w-4", typeColors[mission.type as SalesMissionType] ?? "text-muted-foreground")} />
                 )}
               </div>
 
@@ -106,6 +118,10 @@ export function DashboardMissions({ missions, completedTitles }: DashboardMissio
                   {mission.title}
                 </p>
               </div>
+
+              <span className="shrink-0 text-[10px]" title={badge.label}>
+                {badge.emoji}
+              </span>
 
               <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", priorityColors[mission.priority])}>
                 {mission.priority}

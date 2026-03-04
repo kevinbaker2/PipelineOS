@@ -231,27 +231,25 @@ export default async function MissionsPage({ searchParams }: MissionsPageProps) 
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href={intensity === "lighter" ? "/missions" : "/missions?intensity=lighter"}>
-            <button
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                intensity === "lighter"
-                  ? "border-sky-500/50 bg-sky-500/10 text-sky-400"
-                  : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
-              }`}
-            >
-              Lighter today
-            </button>
+          <Link
+            href={intensity === "lighter" ? "/missions" : "/missions?intensity=lighter"}
+            className={`inline-block rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+              intensity === "lighter"
+                ? "border-sky-500/50 bg-sky-500/10 text-sky-400"
+                : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
+            }`}
+          >
+            Lighter day today
           </Link>
-          <Link href={intensity === "more" ? "/missions" : "/missions?intensity=more"}>
-            <button
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                intensity === "more"
-                  ? "border-orange-500/50 bg-orange-500/10 text-orange-400"
-                  : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
-              }`}
-            >
-              More today
-            </button>
+          <Link
+            href={intensity === "more" ? "/missions" : "/missions?intensity=more"}
+            className={`inline-block rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+              intensity === "more"
+                ? "border-orange-500/50 bg-orange-500/10 text-orange-400"
+                : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
+            }`}
+          >
+            I want to do more today
           </Link>
         </div>
       </div>
