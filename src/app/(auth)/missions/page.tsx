@@ -18,7 +18,7 @@ import type { CarryoverTask } from "@/services/missions";
 import { format } from "date-fns";
 
 export default async function MissionsPage() {
-  let allSalesMissions: MissionTask[];
+  let salesMissions: MissionTask[];
   let completedTitles: string[] = [];
   let lifetimeXp = 0;
   let contentMissions: MissionTask[] = [];
@@ -49,7 +49,7 @@ export default async function MissionsPage() {
       carryoverTasks = await getCarryoverMissions(user.id);
 
       if (isDayOff) {
-        allSalesMissions = [];
+        salesMissions = [];
         lifetimeXp = await getUserXpTotal(user.id);
       } else {
         const showSales = missionCategories.includes("sales");
@@ -66,7 +66,7 @@ export default async function MissionsPage() {
           mktCompleted,
           mktWeeklyXp,
         ] = await Promise.all([
-          showSales ? generateMissions(user.id, "all") : Promise.resolve([]),
+          showSales ? generateMissions(user.id) : Promise.resolve([]),
           showSales ? getCompletedMissionTitles() : Promise.resolve([]),
           getUserXpTotal(user.id),
           showMarketing ? generateMarketingMissions(user.id) : Promise.resolve([]),
@@ -75,7 +75,7 @@ export default async function MissionsPage() {
           needMktData ? getWeeklyMarketingXp(user.id) : Promise.resolve(0),
         ]);
 
-        allSalesMissions = sales;
+        salesMissions = sales;
         completedTitles = salesCompleted;
         lifetimeXp = xp;
         contentMissions = content;
@@ -84,11 +84,11 @@ export default async function MissionsPage() {
         weeklyMktXp = mktWeeklyXp;
       }
     } else {
-      allSalesMissions = [];
+      salesMissions = [];
     }
   } catch {
     // Demo fallback
-    allSalesMissions = [
+    salesMissions = [
       {
         id: "demo-1",
         type: "stagnation",
@@ -194,7 +194,7 @@ export default async function MissionsPage() {
       </div>
 
       <MissionsPageContent
-        allSalesMissions={allSalesMissions}
+        salesMissions={salesMissions}
         contentMissions={contentMissions}
         leadGenMissions={leadGenMissions}
         completedTitles={completedTitles}

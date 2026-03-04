@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { MissionList } from "@/components/missions/mission-list";
 import { MarketingMissionList } from "@/components/missions/marketing-mission-list";
 import { stripBracketPrefix } from "@/lib/utils";
@@ -8,28 +7,8 @@ import type { MissionTask } from "@/types";
 import type { CarryoverTask } from "@/services/missions";
 import Link from "next/link";
 
-type Intensity = "lighter" | "normal" | "more";
-
-const XP_BUDGETS: Record<Intensity, number> = {
-  lighter: 60,
-  normal: 100,
-  more: 150,
-};
-
-function applyBudget(missions: MissionTask[], intensity: Intensity): MissionTask[] {
-  const budget = XP_BUDGETS[intensity];
-  const result: MissionTask[] = [];
-  let spent = 0;
-  for (const m of missions) {
-    if (spent + m.xp_value > budget && result.length > 0) continue;
-    result.push(m);
-    spent += m.xp_value;
-  }
-  return result;
-}
-
 interface MissionsPageContentProps {
-  allSalesMissions: MissionTask[];
+  salesMissions: MissionTask[];
   contentMissions: MissionTask[];
   leadGenMissions: MissionTask[];
   completedTitles: string[];
@@ -42,7 +21,7 @@ interface MissionsPageContentProps {
 }
 
 export function MissionsPageContent({
-  allSalesMissions,
+  salesMissions,
   contentMissions,
   leadGenMissions,
   completedTitles,
@@ -53,9 +32,6 @@ export function MissionsPageContent({
   carryoverTasks,
   todayLabel,
 }: MissionsPageContentProps) {
-  const [intensity, setIntensity] = useState<Intensity>("normal");
-
-  const salesMissions = applyBudget(allSalesMissions, intensity);
   const allTodayMissions = [...salesMissions, ...contentMissions, ...leadGenMissions];
   const totalTodayXp = allTodayMissions.reduce((s, m) => s + m.xp_value, 0);
 
@@ -63,42 +39,14 @@ export function MissionsPageContent({
   const showMarketing = missionCategories.includes("marketing");
   const showLeadGen = missionCategories.includes("lead_generation");
 
-  function toggleIntensity(target: Intensity) {
-    setIntensity((prev) => (prev === target ? "normal" : target));
-  }
-
   return (
     <>
-      {/* Today's Focus header + intensity buttons */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Today&apos;s Focus</h1>
-          <p className="text-sm text-muted-foreground">
-            {todayLabel} &middot; {allTodayMissions.length} missions &middot; {totalTodayXp} XP
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => toggleIntensity("lighter")}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-              intensity === "lighter"
-                ? "border-sky-500/50 bg-sky-500/10 text-sky-400"
-                : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
-            Lighter day today
-          </button>
-          <button
-            onClick={() => toggleIntensity("more")}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-              intensity === "more"
-                ? "border-orange-500/50 bg-orange-500/10 text-orange-400"
-                : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
-            I want to do more today
-          </button>
-        </div>
+      {/* Today's Focus header */}
+      <div>
+        <h1 className="text-2xl font-bold">Today&apos;s Focus</h1>
+        <p className="text-sm text-muted-foreground">
+          {todayLabel} &middot; {allTodayMissions.length} missions &middot; {totalTodayXp} XP
+        </p>
       </div>
 
       {/* Carryover tasks */}
