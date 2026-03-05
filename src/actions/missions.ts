@@ -55,6 +55,8 @@ export async function completeMission(
     .eq("id", user.id);
 
   revalidatePath("/missions");
+  revalidatePath("/dashboard");
   revalidatePath("/leaderboard");
+  revalidatePath("/");
   return { success: true };
 }

@@ -444,7 +444,6 @@ interface LeadGenDef {
   xp: number;
   priority: "low" | "medium" | "high" | "critical";
   timesPerWeek: number;
-  offset: number; // stagger different mission types across different days
 }
 
 const LEAD_GEN_DEFS: LeadGenDef[] = [
@@ -455,7 +454,6 @@ const LEAD_GEN_DEFS: LeadGenDef[] = [
     xp: 20,
     priority: "high",
     timesPerWeek: 2,
-    offset: 0,
   },
   {
     type: "website_visitors",
@@ -464,7 +462,6 @@ const LEAD_GEN_DEFS: LeadGenDef[] = [
     xp: 20,
     priority: "medium",
     timesPerWeek: 1,
-    offset: 1,
   },
   {
     type: "linkedin_prospecting",
@@ -473,29 +470,22 @@ const LEAD_GEN_DEFS: LeadGenDef[] = [
     xp: 15,
     priority: "medium",
     timesPerWeek: 2,
-    offset: 1,
   },
 ];
 
 /**
- * Pick N evenly-spaced days from the user's work_days array.
- * Offset staggers different mission types so they don't all land on the same days.
+ * Pick N days from the user's work_days array using a weekly seed so
+ * the chosen days rotate each week instead of landing on the same days.
+ * The defIndex parameter staggers different mission types apart.
  */
-function pickDays(workDays: number[], count: number, offset: number): number[] {
+function pickDays(workDays: number[], count: number, defIndex: number, weekSeed: number): number[] {
   const sorted = [...workDays].sort((a, b) => a - b);
   const n = sorted.length;
   if (n === 0) return [];
   if (count >= n) return sorted;
 
-  const step = n / count;
-  const result: number[] = [];
-  for (let i = 0; i < count; i++) {
-    const idx = Math.floor(i * step + offset) % n;
-    if (!result.includes(sorted[idx])) {
-      result.push(sorted[idx]);
-    }
-  }
-  return result;
+  const shuffled = shuffleWithSeed(sorted, weekSeed + defIndex * 7);
+  return shuffled.slice(0, count);
 }
 
 export async function generateLeadGenMissions(userId: string): Promise<MissionTask[]> {
@@ -506,6 +496,9 @@ export async function generateLeadGenMissions(userId: string): Promise<MissionTa
   // Convert to ISO weekday: 1=Mon...7=Sun
   const todayIso = todayDow === 0 ? 7 : todayDow;
 
+  // Weekly seed: changes each week so picked days rotate
+  const weekSeed = now.getFullYear() * 100 + weekNum;
+
   const [workDays, completedTitles] = await Promise.all([
     getUserWorkDays(userId),
     getCompletedMarketingTitles(),
@@ -513,8 +506,9 @@ export async function generateLeadGenMissions(userId: string): Promise<MissionTa
   const completedSet = new Set(completedTitles);
   const missions: MissionTask[] = [];
 
-  for (const def of LEAD_GEN_DEFS) {
-    const scheduledDays = pickDays(workDays, def.timesPerWeek, def.offset);
+  for (let defIdx = 0; defIdx < LEAD_GEN_DEFS.length; defIdx++) {
+    const def = LEAD_GEN_DEFS[defIdx];
+    const scheduledDays = pickDays(workDays, def.timesPerWeek, defIdx, weekSeed);
 
     // Only show if today is one of the scheduled days
     if (!scheduledDays.includes(todayIso)) continue;
