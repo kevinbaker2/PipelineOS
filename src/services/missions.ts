@@ -1,9 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MissionTask, MarketingMissionType } from "@/types";
 import { differenceInDays, parseISO, getWeek, getDay, startOfWeek, startOfDay, format, subDays } from "date-fns";
 
-export async function getUserWorkDays(userId: string): Promise<number[]> {
-  const supabase = createClient();
+/** Any Supabase client (cookie-based or service-role). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DbClient = SupabaseClient<any, any, any>;
+
+function getClient(client?: DbClient): DbClient {
+  return client ?? createClient();
+}
+
+export async function getUserWorkDays(userId: string, client?: DbClient): Promise<number[]> {
+  const supabase = getClient(client);
   const { data } = await supabase
     .from("users")
     .select("work_days")
@@ -12,8 +21,8 @@ export async function getUserWorkDays(userId: string): Promise<number[]> {
   return data?.work_days ?? [1, 2, 3, 4, 5];
 }
 
-export async function getUserMissionCategories(userId: string): Promise<string[]> {
-  const supabase = createClient();
+export async function getUserMissionCategories(userId: string, client?: DbClient): Promise<string[]> {
+  const supabase = getClient(client);
   const { data } = await supabase
     .from("users")
     .select("mission_categories")
@@ -62,14 +71,18 @@ function getXpBudget(intensity: MissionIntensity): number {
 
 export async function generateMissions(
   userId: string,
-  intensity: MissionIntensity = "normal"
+  intensity: MissionIntensity = "normal",
+  client?: DbClient,
+  orgId?: string,
 ): Promise<MissionTask[]> {
-  const supabase = createClient();
-  const { data: leads } = await supabase
+  const supabase = getClient(client);
+  let query = supabase
     .from("leads")
     .select("*")
     .neq("phase", "Closed Won")
     .neq("phase", "Closed Lost");
+  if (orgId) query = query.eq("org_id", orgId);
+  const { data: leads } = await query;
 
   const activeLeads = leads ?? [];
   const now = new Date();
@@ -184,21 +197,23 @@ export async function generateMissions(
   return result;
 }
 
-export async function getCompletedMissionTitles(): Promise<string[]> {
-  const supabase = createClient();
+export async function getCompletedMissionTitles(userId?: string, client?: DbClient): Promise<string[]> {
+  const supabase = getClient(client);
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data } = await supabase
+  let query = supabase
     .from("tasks")
     .select("title")
     .eq("due_date", today)
     .not("completed_at", "is", null);
+  if (userId) query = query.eq("user_id", userId);
 
+  const { data } = await query;
   return (data ?? []).map((t) => t.title);
 }
 
-export async function getTodayCompletedCount(userId: string): Promise<number> {
-  const supabase = createClient();
+export async function getTodayCompletedCount(userId: string, client?: DbClient): Promise<number> {
+  const supabase = getClient(client);
   const todayStr = format(startOfDay(new Date()), "yyyy-MM-dd");
 
   const { count } = await supabase
@@ -211,8 +226,8 @@ export async function getTodayCompletedCount(userId: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function getWeeklyXp(userId: string): Promise<number> {
-  const supabase = createClient();
+export async function getWeeklyXp(userId: string, client?: DbClient): Promise<number> {
+  const supabase = getClient(client);
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekStartStr = format(weekStart, "yyyy-MM-dd");
 
@@ -351,20 +366,25 @@ function isCycleActive(frequency: Frequency, now: Date): boolean {
   return true;
 }
 
-export async function getCompletedMarketingTitles(): Promise<string[]> {
-  const supabase = createClient();
+export async function getCompletedMarketingTitles(userId?: string, client?: DbClient): Promise<string[]> {
+  const supabase = getClient(client);
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekStartStr = format(weekStart, "yyyy-MM-dd");
 
-  const { data } = await supabase
+  let query = supabase
     .from("tasks")
     .select("title")
     .eq("category", "marketing")
+    .gte("due_date", weekStartStr)
     .not("completed_at", "is", null);
+  if (userId) query = query.eq("user_id", userId);
 
+  const { data } = await query;
   return (data ?? []).map((t) => t.title);
 }
 
-export async function getWeeklyMarketingXp(userId: string): Promise<number> {
-  const supabase = createClient();
+export async function getWeeklyMarketingXp(userId: string, client?: DbClient): Promise<number> {
+  const supabase = getClient(client);
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekStartStr = format(weekStart, "yyyy-MM-dd");
 
@@ -379,13 +399,11 @@ export async function getWeeklyMarketingXp(userId: string): Promise<number> {
   return (data ?? []).reduce((sum, t) => sum + t.xp_value, 0);
 }
 
-export async function generateMarketingMissions(userId: string): Promise<MissionTask[]> {
+export async function generateMarketingMissions(userId: string, client?: DbClient): Promise<MissionTask[]> {
   const now = new Date();
-  const completedTitles = await getCompletedMarketingTitles();
+  const completedTitles = await getCompletedMarketingTitles(userId, client);
   const completedSet = new Set(completedTitles);
   const missions: MissionTask[] = [];
-
-  void userId; // needed for future per-user filtering
 
   for (const schedule of MARKETING_SCHEDULES) {
     if (!isCycleActive(schedule.frequency, now)) continue;
@@ -488,7 +506,7 @@ function pickDays(workDays: number[], count: number, defIndex: number, weekSeed:
   return shuffled.slice(0, count);
 }
 
-export async function generateLeadGenMissions(userId: string): Promise<MissionTask[]> {
+export async function generateLeadGenMissions(userId: string, client?: DbClient): Promise<MissionTask[]> {
   const now = new Date();
   const weekNum = getWeek(now, { weekStartsOn: 1 });
   const cycleId = `${now.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
@@ -500,8 +518,8 @@ export async function generateLeadGenMissions(userId: string): Promise<MissionTa
   const weekSeed = now.getFullYear() * 100 + weekNum;
 
   const [workDays, completedTitles] = await Promise.all([
-    getUserWorkDays(userId),
-    getCompletedMarketingTitles(),
+    getUserWorkDays(userId, client),
+    getCompletedMarketingTitles(userId, client),
   ]);
   const completedSet = new Set(completedTitles);
   const missions: MissionTask[] = [];
@@ -550,8 +568,8 @@ export interface CarryoverTask {
   category: string | null;
 }
 
-export async function getCarryoverMissions(userId: string): Promise<CarryoverTask[]> {
-  const supabase = createClient();
+export async function getCarryoverMissions(userId: string, client?: DbClient): Promise<CarryoverTask[]> {
+  const supabase = getClient(client);
   const todayStr = format(startOfDay(new Date()), "yyyy-MM-dd");
   // Look back up to 7 days for uncompleted tasks
   const lookbackStr = format(subDays(new Date(), 7), "yyyy-MM-dd");
