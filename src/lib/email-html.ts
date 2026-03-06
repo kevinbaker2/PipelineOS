@@ -1,5 +1,6 @@
-import { format } from "date-fns";
+import { format, differenceInDays, parseISO } from "date-fns";
 import { stripBracketPrefix } from "@/lib/utils";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface EmailMission {
   title: string;
@@ -7,6 +8,14 @@ export interface EmailMission {
   xp: number;
   priority: string;
   category: string;
+}
+
+export interface PriorityDeal {
+  id: string;
+  companyName: string;
+  phase: string;
+  daysSinceActivity: number;
+  reason: string;
 }
 
 export function buildEmailHtml(
@@ -17,6 +26,7 @@ export function buildEmailHtml(
   level: number,
   appUrl: string,
   footerLabel = "Your daily mission briefing",
+  priorityDeals: PriorityDeal[] = [],
 ): string {
   const grouped: Record<string, EmailMission[]> = {};
   for (const m of missions) {
@@ -122,6 +132,41 @@ export function buildEmailHtml(
           </td>
         </tr>
 
+        ${priorityDeals.length > 0 ? `
+        <!-- Priority Deals -->
+        <tr>
+          <td style="padding:20px 24px 8px;border-top:1px solid #27272a;">
+            <div style="font-size:14px;font-weight:700;color:#f97316;">&#128293; Priority Deals</div>
+            <div style="color:#a1a1aa;font-size:11px;margin-top:2px;">Leads that need your attention today</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 24px 16px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              ${priorityDeals.map((deal) => `
+              <tr>
+                <td style="padding:10px 0;border-bottom:1px solid #27272a;">
+                  <div style="display:flex;">
+                    <div>
+                      <a href="${appUrl}/leads/${deal.id}" style="font-weight:600;color:#fafafa;font-size:14px;text-decoration:none;">${deal.companyName}</a>
+                      <div style="color:#a1a1aa;font-size:12px;margin-top:2px;">
+                        ${deal.phase} &middot; ${deal.daysSinceActivity}d since last activity
+                      </div>
+                      <div style="margin-top:4px;">
+                        <span style="display:inline-block;background:#f97316;color:#fff;font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;text-transform:uppercase;">${deal.reason}</span>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td style="padding:10px 0;border-bottom:1px solid #27272a;text-align:right;vertical-align:middle;white-space:nowrap;">
+                  <a href="${appUrl}/leads/${deal.id}" style="display:inline-block;background:#27272a;color:#fafafa;font-size:11px;font-weight:600;text-decoration:none;padding:6px 14px;border-radius:6px;">View &rarr;</a>
+                </td>
+              </tr>`).join("")}
+            </table>
+          </td>
+        </tr>
+        ` : ""}
+
         <!-- CTA -->
         <tr>
           <td style="padding:24px;text-align:center;">
@@ -143,4 +188,83 @@ export function buildEmailHtml(
   </table>
 </body>
 </html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Fetch priority deals for any user (independent of mission_categories)
+// ---------------------------------------------------------------------------
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getPriorityDeals(orgId: string, client: SupabaseClient<any, any, any>): Promise<PriorityDeal[]> {
+  const { data: leads } = await client
+    .from("leads")
+    .select("id, company_name, phase, last_activity_at, expected_mrr, probability, expected_close_date")
+    .eq("org_id", orgId)
+    .not("phase", "eq", "Closed Won")
+    .not("phase", "eq", "Closed Lost");
+
+  if (!leads || leads.length === 0) return [];
+
+  const now = new Date();
+
+  interface ScoredDeal extends PriorityDeal {
+    score: number;
+  }
+
+  const deals: ScoredDeal[] = [];
+
+  for (const lead of leads) {
+    const days = differenceInDays(now, parseISO(lead.last_activity_at));
+    let reason = "";
+    let score = 0;
+
+    // Negotiation phase — high value, needs push
+    if (lead.phase === "Negotiation") {
+      reason = "In negotiation";
+      score = 40 + (lead.probability ?? 0) / 2;
+    }
+    // Stale proposal
+    else if (lead.phase === "Proposal" && days > 7) {
+      reason = "Proposal pending";
+      score = 35 + Math.min(days, 30);
+    }
+    // Stagnated lead (any phase, no activity > 7 days)
+    else if (days > 7) {
+      reason = "Stagnated";
+      score = 20 + Math.min(days, 30);
+    }
+
+    // Close date approaching (within 14 days)
+    if (lead.expected_close_date) {
+      const daysToClose = differenceInDays(parseISO(lead.expected_close_date), now);
+      if (daysToClose >= 0 && daysToClose <= 14) {
+        if (!reason) reason = "Close date approaching";
+        score += 15 + (14 - daysToClose);
+      }
+    }
+
+    if (!reason) continue;
+
+    // Boost by MRR value
+    score += Math.min(Number(lead.expected_mrr ?? 0) / 500, 20);
+
+    deals.push({
+      id: lead.id,
+      companyName: lead.company_name,
+      phase: lead.phase,
+      daysSinceActivity: days,
+      reason,
+      score,
+    });
+  }
+
+  // Sort by score descending, take top 5
+  deals.sort((a, b) => b.score - a.score);
+  return deals.slice(0, 5).map((d) => ({
+    id: d.id,
+    companyName: d.companyName,
+    phase: d.phase,
+    daysSinceActivity: d.daysSinceActivity,
+    reason: d.reason,
+  }));
 }

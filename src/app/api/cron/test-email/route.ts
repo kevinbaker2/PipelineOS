@@ -3,7 +3,7 @@ import { Resend } from "resend";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getDailyQuote } from "@/lib/quotes";
 import { getLevel } from "@/lib/utils";
-import { buildEmailHtml, type EmailMission } from "@/lib/email-html";
+import { buildEmailHtml, getPriorityDeals, type EmailMission } from "@/lib/email-html";
 import {
   generateMissions,
   generateMarketingMissions,
@@ -62,13 +62,15 @@ export async function GET(request: NextRequest) {
     missions.push({ title: m.title, description: m.description, xp: m.xp_value, priority: m.priority, category: "Lead Generation" });
   }
 
+  const priorityDeals = await getPriorityDeals(user.org_id, supabase);
+
   const resend = new Resend(resendKey);
   const appUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pipeline-os-rosy.vercel.app";
   const quote = getDailyQuote();
   const level = getLevel(user.xp_total ?? 0);
   const firstName = (user.full_name ?? "").split(" ")[0] || "there";
 
-  const html = buildEmailHtml(firstName, quote, missions, user.xp_total ?? 0, level, appUrl, "Test email");
+  const html = buildEmailHtml(firstName, quote, missions, user.xp_total ?? 0, level, appUrl, "Test email", priorityDeals);
 
   const { error: sendError } = await resend.emails.send({
     from: "PipelineOS <onboarding@resend.dev>",

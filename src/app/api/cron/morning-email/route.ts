@@ -3,7 +3,7 @@ import { Resend } from "resend";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getDailyQuote } from "@/lib/quotes";
 import { getLevel } from "@/lib/utils";
-import { buildEmailHtml, type EmailMission } from "@/lib/email-html";
+import { buildEmailHtml, getPriorityDeals, type EmailMission } from "@/lib/email-html";
 import {
   generateMissions,
   generateMarketingMissions,
@@ -120,7 +120,10 @@ export async function GET(request: NextRequest) {
 
   for (const user of eligibleUsers) {
     try {
-      const missions = await collectMissionsForEmail(user.id, user.org_id, supabase);
+      const [missions, priorityDeals] = await Promise.all([
+        collectMissionsForEmail(user.id, user.org_id, supabase),
+        getPriorityDeals(user.org_id, supabase),
+      ]);
       const level = getLevel(user.xp_total ?? 0);
       const firstName = (user.full_name ?? "").split(" ")[0] || "there";
 
@@ -130,7 +133,9 @@ export async function GET(request: NextRequest) {
         missions,
         user.xp_total ?? 0,
         level,
-        appUrl
+        appUrl,
+        "Your daily mission briefing",
+        priorityDeals,
       );
 
       await resend.emails.send({
