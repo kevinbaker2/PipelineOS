@@ -3,12 +3,10 @@ import { getLeadsByPhase, getLeads } from "@/services/leads";
 import { getPhaseSettings } from "@/services/scoring";
 import { getUserXpTotal } from "@/services/leaderboard";
 import {
-  generateMissions,
+  generateDailyMissions,
   getCompletedMissionTitles,
   getTodayCompletedCount,
   getWeeklyXp,
-  generateMarketingMissions,
-  generateLeadGenMissions,
   getUserMissionCategories,
   getCompletedMarketingTitles,
 } from "@/services/missions";
@@ -46,36 +44,29 @@ export default async function DashboardPage() {
     const categories = currentUserId
       ? await getUserMissionCategories(currentUserId)
       : ["sales"];
-    const showSales = categories.includes("sales");
-    const showMarketing = categories.includes("marketing");
-    const showLeadGen = categories.includes("lead_generation");
-    const needMktCompleted = showMarketing || showLeadGen;
+    const needMktCompleted = categories.includes("marketing") || categories.includes("lead_generation");
 
     const [
       leadsByPhaseResult,
       allLeadsResult,
       dbPhases,
       xpTotal,
-      salesMissionsResult,
+      dailyResult,
       salesCompletedResult,
       todayResult,
       weeklyResult,
       notesResult,
-      marketingMissionsResult,
-      leadGenMissionsResult,
       mktCompletedResult,
     ] = await Promise.all([
       getLeadsByPhase(),
       getLeads(),
       getPhaseSettings(),
       currentUserId ? getUserXpTotal(currentUserId) : Promise.resolve(0),
-      showSales && currentUserId ? generateMissions(currentUserId) : Promise.resolve([]),
+      currentUserId ? generateDailyMissions(currentUserId) : Promise.resolve({ salesMissions: [], contentMissions: [], leadGenMissions: [] }),
       getCompletedMissionTitles(),
       currentUserId ? getTodayCompletedCount(currentUserId) : Promise.resolve(0),
       currentUserId ? getWeeklyXp(currentUserId) : Promise.resolve(0),
       getTeamNotes(),
-      showMarketing && currentUserId ? generateMarketingMissions(currentUserId) : Promise.resolve([]),
-      showLeadGen && currentUserId ? generateLeadGenMissions(currentUserId) : Promise.resolve([]),
       needMktCompleted ? getCompletedMarketingTitles() : Promise.resolve([]),
     ]);
 
@@ -89,9 +80,9 @@ export default async function DashboardPage() {
 
     // Merge all missions, sort by priority
     const allMissions = [
-      ...salesMissionsResult,
-      ...marketingMissionsResult,
-      ...leadGenMissionsResult,
+      ...dailyResult.salesMissions,
+      ...dailyResult.contentMissions,
+      ...dailyResult.leadGenMissions,
     ];
     const priorityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
     allMissions.sort((a, b) => (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3));

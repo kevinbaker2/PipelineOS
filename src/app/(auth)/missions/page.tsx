@@ -1,9 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import {
-  generateMissions,
+  generateDailyMissions,
   getCompletedMissionTitles,
-  generateMarketingMissions,
-  generateLeadGenMissions,
   getCompletedMarketingTitles,
   getWeeklyMarketingXp,
   getUserWorkDays,
@@ -52,34 +50,27 @@ export default async function MissionsPage() {
         salesMissions = [];
         lifetimeXp = await getUserXpTotal(user.id);
       } else {
-        const showSales = missionCategories.includes("sales");
-        const showMarketing = missionCategories.includes("marketing");
-        const showLeadGen = missionCategories.includes("lead_generation");
-        const needMktData = showMarketing || showLeadGen;
+        const needMktData = missionCategories.includes("marketing") || missionCategories.includes("lead_generation");
 
         const [
-          sales,
+          daily,
           salesCompleted,
           xp,
-          content,
-          leadGen,
           mktCompleted,
           mktWeeklyXp,
         ] = await Promise.all([
-          showSales ? generateMissions(user.id) : Promise.resolve([]),
-          showSales ? getCompletedMissionTitles() : Promise.resolve([]),
+          generateDailyMissions(user.id),
+          getCompletedMissionTitles(),
           getUserXpTotal(user.id),
-          showMarketing ? generateMarketingMissions(user.id) : Promise.resolve([]),
-          showLeadGen ? generateLeadGenMissions(user.id) : Promise.resolve([]),
           needMktData ? getCompletedMarketingTitles() : Promise.resolve([]),
           needMktData ? getWeeklyMarketingXp(user.id) : Promise.resolve(0),
         ]);
 
-        salesMissions = sales;
+        salesMissions = daily.salesMissions;
+        contentMissions = daily.contentMissions;
+        leadGenMissions = daily.leadGenMissions;
         completedTitles = salesCompleted;
         lifetimeXp = xp;
-        contentMissions = content;
-        leadGenMissions = leadGen;
         completedMarketingTitles = mktCompleted;
         weeklyMktXp = mktWeeklyXp;
       }

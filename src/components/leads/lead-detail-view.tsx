@@ -76,11 +76,13 @@ function InlineEdit({
   field,
   onSave,
   className,
+  placeholder,
 }: {
   value: string;
   field: string;
   onSave: (field: string, value: string) => void;
   className?: string;
+  placeholder?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -95,7 +97,7 @@ function InlineEdit({
 
   function save() {
     const trimmed = draft.trim();
-    if (trimmed && trimmed !== value) {
+    if (trimmed !== value) {
       onSave(field, trimmed);
     } else {
       setDraft(value);
@@ -115,6 +117,7 @@ function InlineEdit({
             if (e.key === "Escape") { setDraft(value); setEditing(false); }
           }}
           onBlur={save}
+          placeholder={placeholder}
           className={cn(
             "bg-transparent border-b border-primary/50 outline-none",
             className
@@ -137,7 +140,58 @@ function InlineEdit({
       className="group flex items-center gap-2 cursor-pointer"
       onClick={() => setEditing(true)}
     >
-      <span className={className}>{value}</span>
+      {value ? (
+        <span className={className}>{value}</span>
+      ) : (
+        <span className="text-muted-foreground/50 italic text-sm">{placeholder || "Empty"}</span>
+      )}
+      <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
+    </div>
+  );
+}
+
+function InlineSelect({
+  value,
+  field,
+  options,
+  onSave,
+  renderValue,
+}: {
+  value: string;
+  field: string;
+  options: { value: string; label: string }[];
+  onSave: (field: string, value: string) => void;
+  renderValue: (value: string) => React.ReactNode;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <Select
+        defaultValue={value}
+        onValueChange={(v) => {
+          if (v !== value) onSave(field, v);
+          setEditing(false);
+        }}
+      >
+        <SelectTrigger className="h-7 w-auto min-w-[100px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  return (
+    <div
+      className="group flex items-center gap-2 cursor-pointer"
+      onClick={() => setEditing(true)}
+    >
+      {renderValue(value)}
       <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
     </div>
   );
@@ -276,23 +330,41 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
               <CardTitle className="text-base">Lead Information</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              {lead.email && (
-                <div className="flex items-center gap-3 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span>{lead.email}</span>
-                </div>
-              )}
-              {lead.phone && (
-                <div className="flex items-center gap-3 text-sm">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span>{lead.phone}</span>
-                </div>
-              )}
               <div className="flex items-center gap-3 text-sm">
-                <Globe className="h-4 w-4 text-muted-foreground" />
-                <span>
-                  {lead.country} — {lead.sector}
-                </span>
+                <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <InlineEdit
+                  value={lead.email || ""}
+                  field="email"
+                  onSave={handleUpdate}
+                  placeholder="Add email..."
+                  className="text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <InlineEdit
+                  value={lead.phone || ""}
+                  field="phone"
+                  onSave={handleUpdate}
+                  placeholder="Add phone..."
+                  className="text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <InlineEdit
+                  value={lead.country}
+                  field="country"
+                  onSave={handleUpdate}
+                  className="text-sm"
+                />
+                <span className="text-muted-foreground">—</span>
+                <InlineEdit
+                  value={lead.sector}
+                  field="sector"
+                  onSave={handleUpdate}
+                  className="text-sm"
+                />
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -301,18 +373,31 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
                 </span>
               </div>
               <div className="flex items-center gap-3 text-sm">
-                <Badge variant={lead.source === "inbound" ? "default" : "secondary"}>
-                  {lead.source}
-                </Badge>
+                <InlineSelect
+                  value={lead.source}
+                  field="source"
+                  options={[
+                    { value: "inbound", label: "inbound" },
+                    { value: "outbound", label: "outbound" },
+                  ]}
+                  onSave={handleUpdate}
+                  renderValue={(v) => (
+                    <Badge variant={v === "inbound" ? "default" : "secondary"}>
+                      {v}
+                    </Badge>
+                  )}
+                />
               </div>
-              {lead.source_note && (
-                <div className="flex items-start gap-3 text-sm sm:col-span-2">
-                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="text-muted-foreground">
-                    {lead.source_note}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-start gap-3 text-sm sm:col-span-2">
+                <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <InlineEdit
+                  value={lead.source_note || ""}
+                  field="source_note"
+                  onSave={handleUpdate}
+                  placeholder="Add source note..."
+                  className="text-sm text-muted-foreground"
+                />
+              </div>
             </CardContent>
           </Card>
 

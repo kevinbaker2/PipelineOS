@@ -24,12 +24,14 @@ export async function getScoringSettings(): Promise<ScoringSetting[]> {
 export function getDefaultScoringCriteria(): Omit<ScoringSetting, "id" | "org_id">[] {
   return [
     { category: "firmographic", key: "company_size", label: "Company size 50+", max_points: 15 },
+    { category: "firmographic", key: "company_size_small", label: "Company size 10-50", max_points: 8 },
     { category: "firmographic", key: "industry_fit", label: "Industry fit", max_points: 15 },
     { category: "firmographic", key: "own_product", label: "Has own product", max_points: 10 },
     { category: "firmographic", key: "geography", label: "Target geography", max_points: 10 },
     { category: "engagement", key: "meetings_held", label: "Meetings held", max_points: 15 },
     { category: "engagement", key: "decision_maker", label: "Decision maker access", max_points: 10 },
     { category: "engagement", key: "inbound_lead", label: "Inbound lead", max_points: 10 },
+    { category: "engagement", key: "conversation_started", label: "Conversation started", max_points: 8 },
     { category: "strategic", key: "scaling", label: "Scaling or hiring", max_points: 15 },
     { category: "strategic", key: "no_competitor", label: "No incumbent competitor", max_points: 10 },
     { category: "strategic", key: "budget_confirmed", label: "Budget confirmed", max_points: 10 },
