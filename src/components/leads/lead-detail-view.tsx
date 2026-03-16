@@ -203,7 +203,7 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
     new Set(Array.isArray(lead.score_details) ? lead.score_details : [])
   );
 
-  const { totalScore, maxScore, categoryScores } = useMemo(() => {
+  const { totalScore, totalEarned, maxScore, categoryScores } = useMemo(() => {
     let total = 0;
     let max = 0;
     const cats: Record<string, { earned: number; max: number }> = {
@@ -224,7 +224,7 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
     // Normalize to 0-100 scale
     const normalized = max > 0 ? Math.round((total / max) * 100) : 0;
 
-    return { totalScore: normalized, maxScore: max, categoryScores: cats };
+    return { totalScore: normalized, totalEarned: total, maxScore: max, categoryScores: cats };
   }, [checkedIds, scoringSettings]);
 
   const scoreColor =
@@ -532,13 +532,11 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
-              <Progress value={totalScore} className={cn("h-2.5", progressColor)} />
-
-              <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
-                <span className="text-sm font-medium">Total Score</span>
-                <span className={cn("text-sm font-bold", scoreColor)}>
-                  {Object.values(categoryScores).reduce((s, c) => s + c.earned, 0)} / {maxScore} pts
-                </span>
+              <div>
+                <Progress value={totalScore} className={cn("h-2.5", progressColor)} />
+                <p className="mt-1.5 text-xs text-muted-foreground text-right">
+                  {totalEarned} / {maxScore} pts = {totalScore}%
+                </p>
               </div>
 
               {(["firmographic", "engagement", "strategic"] as const).map((category) => {
