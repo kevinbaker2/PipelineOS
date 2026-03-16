@@ -534,6 +534,13 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
             <CardContent className="space-y-5">
               <Progress value={totalScore} className={cn("h-2.5", progressColor)} />
 
+              <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+                <span className="text-sm font-medium">Total Score</span>
+                <span className={cn("text-sm font-bold", scoreColor)}>
+                  {Object.values(categoryScores).reduce((s, c) => s + c.earned, 0)} / {maxScore} pts
+                </span>
+              </div>
+
               {(["firmographic", "engagement", "strategic"] as const).map((category) => {
                 const items = groupedSettings[category];
                 const catScore = categoryScores[category];
@@ -587,13 +594,6 @@ export function LeadDetailView({ lead, activities, scoringSettings }: LeadDetail
               })}
 
               <Separator />
-
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Raw points</span>
-                <span className="font-medium">
-                  {Object.values(categoryScores).reduce((s, c) => s + c.earned, 0)} / {maxScore}
-                </span>
-              </div>
             </CardContent>
           </Card>
 
