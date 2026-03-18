@@ -9,6 +9,7 @@ import {
   getWeeklyXp,
   getUserMissionCategories,
   getCompletedMarketingTitles,
+  persistTodayMissions,
 } from "@/services/missions";
 import { getTeamNotes } from "@/services/notes";
 import { createClient } from "@/lib/supabase/server";
@@ -88,6 +89,19 @@ export default async function DashboardPage() {
     allMissions.sort((a, b) => (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3));
     missions = allMissions;
     completedTitles = [...salesCompletedResult, ...mktCompletedResult];
+
+    // Persist missions to tasks table so incomplete ones carry over
+    if (currentUserId) {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("org_id")
+        .eq("id", currentUserId)
+        .single();
+
+      if (profile) {
+        await persistTodayMissions(currentUserId, profile.org_id, allMissions);
+      }
+    }
 
     phases =
       dbPhases.length > 0

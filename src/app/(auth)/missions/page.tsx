@@ -7,6 +7,7 @@ import {
   getUserWorkDays,
   getUserMissionCategories,
   getCarryoverMissions,
+  persistTodayMissions,
 } from "@/services/missions";
 import { getUserXpTotal } from "@/services/leaderboard";
 import { MissionsPageContent } from "@/components/missions/missions-page-content";
@@ -43,9 +44,6 @@ export default async function MissionsPage() {
       const todayNum = dayOfWeek === 0 ? 7 : dayOfWeek; // 1=Mon,...,7=Sun
       isDayOff = !workDays.includes(todayNum);
 
-      // Always fetch carryover regardless of day off
-      carryoverTasks = await getCarryoverMissions(user.id);
-
       if (isDayOff) {
         salesMissions = [];
         lifetimeXp = await getUserXpTotal(user.id);
@@ -73,6 +71,21 @@ export default async function MissionsPage() {
         lifetimeXp = xp;
         completedMarketingTitles = mktCompleted;
         weeklyMktXp = mktWeeklyXp;
+
+        // Persist all missions to tasks table so incomplete ones carry over
+        const { data: profile } = await supabase
+          .from("users")
+          .select("org_id")
+          .eq("id", user.id)
+          .single();
+
+        if (profile) {
+          const allMissions = [...salesMissions, ...contentMissions, ...leadGenMissions];
+          await persistTodayMissions(user.id, profile.org_id, allMissions);
+        }
+
+        // Fetch carryover (only on work days)
+        carryoverTasks = await getCarryoverMissions(user.id);
       }
     } else {
       salesMissions = [];

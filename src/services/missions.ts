@@ -704,6 +704,50 @@ function getFillerMissions(yesterdayTypes: Set<string>): MissionTask[] {
   return fillers.filter((f) => !yesterdayTypes.has(f.type));
 }
 
+/**
+ * Persist today's generated missions to the tasks table so that
+ * incomplete ones can be carried over to subsequent days.
+ * Uses title + due_date + user_id to avoid duplicates.
+ */
+export async function persistTodayMissions(
+  userId: string,
+  orgId: string,
+  missions: MissionTask[],
+  client?: DbClient,
+): Promise<void> {
+  if (missions.length === 0) return;
+  const supabase = getClient(client);
+  const todayStr = format(startOfDay(new Date()), "yyyy-MM-dd");
+
+  // Get titles already saved for today to avoid duplicates
+  const { data: existing } = await supabase
+    .from("tasks")
+    .select("title")
+    .eq("user_id", userId)
+    .eq("due_date", todayStr);
+
+  const existingTitles = new Set((existing ?? []).map((t) => t.title));
+
+  const newTasks = missions
+    .filter((m) => !existingTitles.has(m.title))
+    .map((m) => ({
+      org_id: orgId,
+      user_id: userId,
+      lead_id: m.lead_id || null,
+      title: m.title,
+      description: m.description,
+      priority: m.priority,
+      xp_value: m.xp_value,
+      due_date: todayStr,
+      completed_at: null,
+      category: m.category ?? "sales",
+    }));
+
+  if (newTasks.length > 0) {
+    await supabase.from("tasks").insert(newTasks);
+  }
+}
+
 // ============================================
 // CARRYOVER MISSIONS
 // ============================================

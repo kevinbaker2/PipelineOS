@@ -1,11 +1,16 @@
 "use client";
 
+import { useState, useCallback, useTransition } from "react";
 import { MissionList } from "@/components/missions/mission-list";
 import { MarketingMissionList } from "@/components/missions/marketing-mission-list";
 import { stripBracketPrefix } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2 } from "lucide-react";
 import type { MissionTask } from "@/types";
 import type { CarryoverTask } from "@/services/missions";
 import Link from "next/link";
+import { completeCarryoverTask } from "@/actions/missions";
 
 interface MissionsPageContentProps {
   salesMissions: MissionTask[];
@@ -99,11 +104,24 @@ export function MissionsPageContent({
 
 function CarryoverSection({ tasks }: { tasks: CarryoverTask[] }) {
   const totalCarryXp = tasks.reduce((s, t) => s + t.xp_value, 0);
+  const [completed, setCompleted] = useState<Set<string>>(new Set());
+  const [celebrating, setCelebrating] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const handleComplete = useCallback((task: CarryoverTask) => {
+    setCompleted((prev) => new Set(prev).add(task.id));
+    setCelebrating(task.id);
+    setTimeout(() => setCelebrating(null), 1200);
+
+    startTransition(async () => {
+      await completeCarryoverTask(task.id);
+    });
+  }, [startTransition]);
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <span className="text-amber-400">&#x26A0;&#xFE0F;</span>
+        <span className="text-amber-400">&#x23F0;</span>
         <h2 className="text-base font-semibold text-amber-400">
           Carried Over ({tasks.length})
         </h2>
@@ -112,32 +130,66 @@ function CarryoverSection({ tasks }: { tasks: CarryoverTask[] }) {
         </span>
       </div>
       <div className="grid gap-2">
-        {tasks.map((task) => (
-          <div
-            key={task.id}
-            className="flex items-center gap-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3"
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
-              <span className="text-xs font-bold text-amber-400">!</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">{stripBracketPrefix(task.title)}</p>
-              <p className="text-xs text-muted-foreground">
-                Due {task.due_date} &middot; {task.priority}
-              </p>
-            </div>
-            <span className="shrink-0 text-xs font-bold text-amber-400">
-              +{task.xp_value} XP
-            </span>
-            {task.lead_id && (
-              <Link href={`/leads/${task.lead_id}`}>
-                <span className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/50">
-                  View
+        {tasks.map((task) => {
+          const isCompleted = completed.has(task.id);
+          const isCelebrating = celebrating === task.id;
+
+          return (
+            <div
+              key={task.id}
+              className={cn(
+                "flex items-center gap-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 transition-all duration-300",
+                isCompleted && "opacity-50",
+                isCelebrating && "ring-1 ring-emerald-400/50"
+              )}
+            >
+              <div className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                isCompleted ? "bg-emerald-500/10" : "bg-amber-500/10"
+              )}>
+                {isCompleted ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                ) : (
+                  <span className="text-xs font-bold text-amber-400">!</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={cn("text-sm font-medium", isCompleted && "line-through")}>
+                  {stripBracketPrefix(task.title)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Due {task.due_date} &middot; {task.priority}
+                </p>
+              </div>
+              <span className="shrink-0 text-xs font-bold text-amber-400">
+                +{task.xp_value} XP
+              </span>
+              {task.lead_id && (
+                <Link href={`/leads/${task.lead_id}`}>
+                  <span className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/50">
+                    View
+                  </span>
+                </Link>
+              )}
+              {!isCompleted && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-3 text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                  disabled={isPending}
+                  onClick={() => handleComplete(task)}
+                >
+                  Done
+                </Button>
+              )}
+              {isCelebrating && (
+                <span className="animate-bounce text-xs font-bold text-emerald-400">
+                  +{task.xp_value}!
                 </span>
-              </Link>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
