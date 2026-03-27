@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useCallback, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { MissionList } from "@/components/missions/mission-list";
 import { MarketingMissionList } from "@/components/missions/marketing-mission-list";
 import { stripBracketPrefix } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
 import type { MissionTask } from "@/types";
 import type { CarryoverTask } from "@/services/missions";
 import Link from "next/link";
-import { completeCarryoverTask } from "@/actions/missions";
+import { completeCarryoverTask, dismissCarryoverTask, rerollMissions } from "@/actions/missions";
 
 interface MissionsPageContentProps {
   salesMissions: MissionTask[];
@@ -23,6 +24,7 @@ interface MissionsPageContentProps {
   missionCategories: string[];
   carryoverTasks: CarryoverTask[];
   todayLabel: string;
+  rerollsLeft: number;
 }
 
 export function MissionsPageContent({
@@ -36,7 +38,12 @@ export function MissionsPageContent({
   missionCategories,
   carryoverTasks,
   todayLabel,
+  rerollsLeft: initialRerollsLeft,
 }: MissionsPageContentProps) {
+  const router = useRouter();
+  const [rerollsLeft, setRerollsLeft] = useState(initialRerollsLeft);
+  const [isRerolling, startRerollTransition] = useTransition();
+
   const allTodayMissions = [...salesMissions, ...contentMissions, ...leadGenMissions];
   const totalTodayXp = allTodayMissions.reduce((s, m) => s + m.xp_value, 0);
 
@@ -44,14 +51,37 @@ export function MissionsPageContent({
   const showMarketing = missionCategories.includes("marketing");
   const showLeadGen = missionCategories.includes("lead_generation");
 
+  const handleReroll = useCallback(() => {
+    setRerollsLeft(0);
+    startRerollTransition(async () => {
+      await rerollMissions();
+      router.refresh();
+    });
+  }, [router, startRerollTransition]);
+
   return (
     <>
       {/* Today's Focus header */}
-      <div>
-        <h1 className="text-2xl font-bold">Today&apos;s Focus</h1>
-        <p className="text-sm text-muted-foreground">
-          {todayLabel} &middot; {allTodayMissions.length} missions &middot; {totalTodayXp} XP
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Today&apos;s Focus</h1>
+          <p className="text-sm text-muted-foreground">
+            {todayLabel} &middot; {allTodayMissions.length} missions &middot; {totalTodayXp} XP
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 pt-1">
+          <span className="text-xs text-muted-foreground">
+            Rerolls left today: {rerollsLeft}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={rerollsLeft === 0 || isRerolling}
+            onClick={handleReroll}
+          >
+            🎲 Reroll
+          </Button>
+        </div>
       </div>
 
       {/* Carryover tasks */}
@@ -103,10 +133,15 @@ export function MissionsPageContent({
 }
 
 function CarryoverSection({ tasks }: { tasks: CarryoverTask[] }) {
-  const totalCarryXp = tasks.reduce((s, t) => s + t.xp_value, 0);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [celebrating, setCelebrating] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const visibleTasks = tasks.filter((t) => !dismissed.has(t.id));
+  const totalCarryXp = visibleTasks
+    .filter((t) => !completed.has(t.id))
+    .reduce((s, t) => s + t.xp_value, 0);
 
   const handleComplete = useCallback((task: CarryoverTask) => {
     setCompleted((prev) => new Set(prev).add(task.id));
@@ -118,19 +153,28 @@ function CarryoverSection({ tasks }: { tasks: CarryoverTask[] }) {
     });
   }, [startTransition]);
 
+  const handleDismiss = useCallback((task: CarryoverTask) => {
+    setDismissed((prev) => new Set(prev).add(task.id));
+    startTransition(async () => {
+      await dismissCarryoverTask(task.id);
+    });
+  }, [startTransition]);
+
+  if (visibleTasks.length === 0) return null;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <span className="text-amber-400">&#x23F0;</span>
         <h2 className="text-base font-semibold text-amber-400">
-          Carried Over ({tasks.length})
+          Carried Over ({visibleTasks.length})
         </h2>
         <span className="text-xs text-muted-foreground">
           +{totalCarryXp} XP unclaimed
         </span>
       </div>
       <div className="grid gap-2">
-        {tasks.map((task) => {
+        {visibleTasks.map((task) => {
           const isCompleted = completed.has(task.id);
           const isCelebrating = celebrating === task.id;
 
@@ -186,6 +230,16 @@ function CarryoverSection({ tasks }: { tasks: CarryoverTask[] }) {
                 <span className="animate-bounce text-xs font-bold text-emerald-400">
                   +{task.xp_value}!
                 </span>
+              )}
+              {!isCompleted && (
+                <button
+                  className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground/50 transition-colors hover:bg-muted/50 hover:text-muted-foreground disabled:opacity-40"
+                  title="Dismiss permanently"
+                  disabled={isPending}
+                  onClick={() => handleDismiss(task)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               )}
             </div>
           );

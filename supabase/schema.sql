@@ -319,3 +319,7 @@ $$ language plpgsql security definer;
 create trigger trg_recalculate_user_xp
   after insert or update or delete on public.tasks
   for each row execute function public.recalculate_user_xp();
+
+-- Mission improvements: dismiss carryover tasks + daily reroll tracking
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS dismissed_at timestamptz;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS last_reroll_date date;

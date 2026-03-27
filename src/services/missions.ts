@@ -74,6 +74,7 @@ export async function generateMissions(
   intensity: MissionIntensity = "normal",
   client?: DbClient,
   orgId?: string,
+  seedOffset: number = 0,
 ): Promise<MissionTask[]> {
   const supabase = getClient(client);
   let query = supabase
@@ -170,7 +171,7 @@ export async function generateMissions(
   });
 
   // Apply daily seed shuffle to add variety (keeps priority groups but shuffles within)
-  const seed = getDaySeed() + userId.charCodeAt(0);
+  const seed = getDaySeed() + userId.charCodeAt(0) + seedOffset;
   const shuffled = shuffleWithSeed(missions, seed);
 
   // Re-sort so critical/high stay on top, but medium/low get shuffled
@@ -195,6 +196,20 @@ export async function generateMissions(
   }
 
   return result;
+}
+
+export async function getRerollStatus(userId: string, client?: DbClient): Promise<{ rerollsLeft: number }> {
+  const supabase = getClient(client);
+  const today = format(startOfDay(new Date()), "yyyy-MM-dd");
+
+  const { data } = await supabase
+    .from("users")
+    .select("last_reroll_date")
+    .eq("id", userId)
+    .single();
+
+  const alreadyRerolled = data?.last_reroll_date === today;
+  return { rerollsLeft: alreadyRerolled ? 0 : 1 };
 }
 
 export async function getCompletedMissionTitles(userId?: string, client?: DbClient): Promise<string[]> {
@@ -568,6 +583,7 @@ export async function generateDailyMissions(
   intensity: MissionIntensity = "normal",
   client?: DbClient,
   orgId?: string,
+  seedOffset: number = 0,
 ): Promise<{
   salesMissions: MissionTask[];
   contentMissions: MissionTask[];
@@ -577,7 +593,7 @@ export async function generateDailyMissions(
 
   const [categories, salesRaw, content, leadGen, yesterdayTypes] = await Promise.all([
     getUserMissionCategories(userId, supabase),
-    generateMissions(userId, intensity, supabase, orgId),
+    generateMissions(userId, intensity, supabase, orgId, seedOffset),
     generateMarketingMissions(userId, supabase),
     generateLeadGenMissions(userId, supabase),
     getYesterdayMissionTypes(userId, supabase),
@@ -603,7 +619,7 @@ export async function generateDailyMissions(
   const needed = Math.min(5, Math.max(3, 5 - totalMissions)) - totalMissions;
   if (needed > 0 && showSales) {
     const fillerPool = getFillerMissions(yesterdayTypes);
-    const seed = getDaySeed() + userId.charCodeAt(0);
+    const seed = getDaySeed() + userId.charCodeAt(0) + seedOffset;
     const shuffled = shuffleWithSeed(fillerPool, seed);
     const existingTypes = new Set(salesMissions.map((m) => m.type));
 
@@ -774,6 +790,7 @@ export async function getCarryoverMissions(userId: string, client?: DbClient): P
     .select("id, title, description, priority, xp_value, due_date, lead_id, category")
     .eq("user_id", userId)
     .is("completed_at", null)
+    .is("dismissed_at", null)
     .lt("due_date", todayStr)
     .gte("due_date", lookbackStr)
     .order("due_date", { ascending: false });

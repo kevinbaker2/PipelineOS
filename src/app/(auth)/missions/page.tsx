@@ -8,6 +8,7 @@ import {
   getUserMissionCategories,
   getCarryoverMissions,
   persistTodayMissions,
+  getRerollStatus,
 } from "@/services/missions";
 import { getUserXpTotal } from "@/services/leaderboard";
 import { MissionsPageContent } from "@/components/missions/missions-page-content";
@@ -27,6 +28,7 @@ export default async function MissionsPage() {
   let isDayOff = false;
   let missionCategories: string[] = ["sales", "marketing"];
   let carryoverTasks: CarryoverTask[] = [];
+  let rerollsLeft = 1;
 
   try {
     const supabase = createClient();
@@ -85,7 +87,12 @@ export default async function MissionsPage() {
         }
 
         // Fetch carryover (only on work days)
-        carryoverTasks = await getCarryoverMissions(user.id);
+        const [carryover, rerollStatus] = await Promise.all([
+          getCarryoverMissions(user.id),
+          getRerollStatus(user.id),
+        ]);
+        carryoverTasks = carryover;
+        rerollsLeft = rerollStatus.rerollsLeft;
       }
     } else {
       salesMissions = [];
@@ -208,6 +215,7 @@ export default async function MissionsPage() {
         missionCategories={missionCategories}
         carryoverTasks={carryoverTasks}
         todayLabel={todayLabel}
+        rerollsLeft={rerollsLeft}
       />
     </div>
   );
